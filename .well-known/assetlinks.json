@@ -1,8 +1,15 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "io.github.plata8jpblip.parla",
-        "sha256_cert_fingerprints": ["DA:62:B7:32:4B:D6:32:B9:02:60:D2:84:F3:CB:24:45:EE:B6:4F:95:91:82:8A:74:41:1A:E4:99:97:CB:82:87"]
-      }
-    }]
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.plata8jpblip.parla",
+      "sha256_cert_fingerprints": [
+        "DA:62:B7:32:4B:D6:32:B9:02:60:D2:84:F3:CB:24:45:EE:B6:4F:95:91:82:8A:74:41:1A:E4:99:97:CB:82:87",
+        "7E:A3:D7:54:BE:D8:E6:8E:CE:38:2F:DB:EA:BC:D8:23:12:4D:D8:71:69:B0:1B:9B:77:16:67:1F:88:0D:4B:35"
+      ]
+    }
+  }
+]

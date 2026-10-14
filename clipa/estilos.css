@@ -1,0 +1,53 @@
+/* Contrast (WCAG 2.2 AA, 4.5:1 for text) — checked by clipa/web/check_contrast.py
+   light: text #1B1B22 on #FFFFFF ≈ 17:1 · muted #50505C ≈ 8:1 · link #B0213F ≈ 6.7:1
+   dark:  text #F2F2F7 on #0F0F14 ≈ 17:1 · muted #B9B9C6 ≈ 9.9:1 · link #FF8FA6 ≈ 8.9:1 */
+:root {
+  --bg: #FFFFFF;
+  --surface: #F5F5F8;
+  --text: #1B1B22;
+  --muted: #50505C;
+  --link: #B0213F;
+  --border: #D6D6DE;
+  --focus: #1A56DB;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0F0F14;
+    --surface: #1C1C24;
+    --text: #F2F2F7;
+    --muted: #B9B9C6;
+    --link: #FF8FA6;
+    --border: #3A3A46;
+    --focus: #8AB4FF;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 1.0625rem/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.saltar {
+  position: absolute; left: -999px; top: 0;
+  background: var(--surface); color: var(--text); padding: .5rem 1rem;
+}
+.saltar:focus { left: 1rem; top: 1rem; }
+header, main, footer { max-width: 46rem; margin: 0 auto; padding: 0 1rem; }
+header { padding-top: 1.25rem; }
+.marca { font-weight: 800; font-size: 1.5rem; color: var(--link); text-decoration: none; }
+h1 { font-size: 1.9rem; line-height: 1.25; margin: 1.5rem 0 .25rem; }
+h2 { font-size: 1.3rem; margin: 2rem 0 .5rem; }
+.fecha, .nota { color: var(--muted); }
+a { color: var(--link); text-underline-offset: .15em; }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
+table { border-collapse: collapse; width: 100%; margin: .5rem 0; font-size: .95rem; }
+th, td { border: 1px solid var(--border); padding: .5rem; text-align: left; vertical-align: top; }
+th { background: var(--surface); }
+.tabla { overflow-x: auto; }
+.caja { background: var(--surface); border: 1px solid var(--border); border-radius: .75rem; padding: 1rem 1.25rem; }
+footer { margin-top: 3rem; padding-bottom: 2rem; border-top: 1px solid var(--border); }
+footer nav ul { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
+footer a { display: inline-block; padding: .4rem 0; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }

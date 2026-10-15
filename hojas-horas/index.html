@@ -561,7 +561,13 @@ $('shareBtn').addEventListener('click', async () => {
 let tt; function toast(msg){ const el = $('toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(tt); tt = setTimeout(()=>el.classList.remove('show'), 2600); }
 
 renderHeader(); renderDays();
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(()=>{});
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  // When a new version takes over, reload once so the installed app shows it straight away.
+  const habia = !!navigator.serviceWorker.controller;
+  let recargado = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (habia && !recargado) { recargado = true; location.reload(); } });
+  navigator.serviceWorker.register('sw.js', {updateViaCache: 'none'}).then(r => r.update()).catch(()=>{});
+}
 })();
 </script>
 </body>

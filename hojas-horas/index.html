@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hoja de Horas · Rectec Vallès</title>
+<meta name="description" content="Apunta tus horas, obras y horas extra del mes y envía la hoja a la oficina en PDF.">
+<meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+:root{
+  --bg:#f3f4ef; --card:#ffffff; --ink:#3c3c3b; --muted:#6f716b; --line:#e2e4da;
+  --accent:#c3d400; --accent-ink:#2e2e2d; --soft:#f3f7d6; --danger:#b42318;
+  --ok:#1a7f4b; --chip:#ecede6; --input:#f9faf6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#161715; --card:#20211f; --ink:#eeefe9; --muted:#a2a49c; --line:#33352f;
+    --accent:#c3d400; --accent-ink:#1f1f1e; --soft:#2b2f14; --danger:#f97066;
+    --ok:#4ade80; --chip:#2b2d29; --input:#1a1b19;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-tap-highlight-color:transparent;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+/* Brand bar stays white in both themes: the logo is dark grey on white. */
+header.top{position:sticky;top:0;z-index:5;background:#fff;color:#3c3c3b;border-bottom:4px solid var(--accent);
+  padding:calc(10px + env(safe-area-inset-top)) 16px 10px}
+.top .brand{display:flex;align-items:center;gap:12px;max-width:608px;margin:0 auto}
+.top .brand img{height:40px;width:auto;display:block}
+.top h1{margin:0;font-size:15px;font-weight:600;color:#6f716b;border-left:1px solid #e2e4da;padding-left:12px}
+.top .sum{display:flex;gap:16px;margin:8px auto 0;font-size:14px;color:#6f716b;max-width:608px}
+.top .sum b{color:#3c3c3b;font-size:16px}
+main{max-width:640px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+label.f{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+input,select{font:inherit;color:var(--ink);background:var(--input);border:1px solid var(--line);border-radius:10px;
+  padding:10px;width:100%;min-height:44px;font-size:16px}
+input:focus,select:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1.3fr 1fr .8fr;gap:10px}
+.period{margin-top:10px;font-size:14px;color:var(--muted)}
+.period b{color:var(--ink)}
+.day{padding:0;overflow:hidden}
+.day.weekend .dhead{background:var(--chip)}
+.dhead{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--soft);gap:10px}
+.dname{font-weight:700;font-size:17px}
+.dname small{font-weight:500;color:var(--muted);margin-left:6px;font-size:14px}
+.badges{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.badge{font-size:13px;font-weight:700;padding:4px 9px;border-radius:999px;background:var(--card);border:1px solid var(--line);white-space:nowrap}
+.badge.extra{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.badge.status{background:var(--ink);color:var(--card);border-color:transparent}
+.dbody{padding:12px 14px}
+.tramo{display:grid;grid-template-columns:1fr 1fr 44px;gap:8px;padding:10px 0;border-top:1px dashed var(--line)}
+.tramo:first-child{border-top:0;padding-top:0}
+.tramo .obra{grid-column:1 / span 2}
+.tramo .parte{grid-column:3 / span 1}
+.tramo .del{grid-row:1;grid-column:3}
+.tramo .obra-row{grid-column:1 / -1;display:grid;grid-template-columns:1fr 92px;gap:8px}
+button{font:inherit;cursor:pointer;border:0;border-radius:10px;min-height:44px;padding:0 14px;touch-action:manipulation}
+.btn{background:var(--chip);color:var(--ink)}
+.btn:active{transform:scale(.98)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.btn.ghost{background:transparent;border:1px dashed var(--line);color:var(--muted);width:100%}
+.btn.icon{width:44px;padding:0;display:grid;place-items:center;background:transparent;color:var(--muted);font-size:20px}
+.btn.icon:hover{color:var(--danger)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{background:var(--chip);color:var(--ink);font-size:14px;min-height:36px;padding:0 12px;border-radius:999px}
+.obra-wrap{position:relative}
+.sugg{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:4;background:var(--card);border:1px solid var(--line);border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.15);max-height:240px;overflow-y:auto;padding:4px 0}
+.sugg button{display:block;width:100%;text-align:left;background:none;color:var(--ink);border-radius:0;min-height:44px;padding:0 12px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sugg button:active,.sugg button:hover{background:var(--soft)}
+.chip.on{background:var(--ink);color:var(--card)}
+.override{display:none;margin-top:10px}
+.override.open{display:grid}
+.small{font-size:13px;color:var(--muted)}
+.link{background:none;color:var(--muted);text-decoration:underline;min-height:36px;padding:0 4px;font-size:13px}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;gap:10px;justify-content:center}
+.bar .btn{flex:1;max-width:300px;min-height:52px;font-size:17px}
+.addday{display:flex;gap:8px}
+.addday input{flex:1}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--card);
+  padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+details summary{cursor:pointer;color:var(--muted);font-size:14px;min-height:36px;display:flex;align-items:center}
+.empty-note{font-size:14px;color:var(--muted);margin:2px 0 10px}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><img src="logo.png" alt="Rectec Vallès" width="75" height="40"><h1>Hoja de horas</h1></div>
+  <div class="sum"><span>Total: <b id="sumTotal">0</b> h</span><span>Extras: <b id="sumExtra">0</b> h</span><span>Días: <b id="sumDays">0</b></span></div>
+</header>
+
+<main>
+  <section class="card">
+    <label class="f" for="nombre">Trabajador</label>
+    <input id="nombre" autocomplete="name" placeholder="Nombre y apellido">
+    <div class="grid2" style="margin-top:10px">
+      <div>
+        <label class="f" for="mes">Mes</label>
+        <select id="mes"></select>
+      </div>
+      <div>
+        <label class="f" for="anio">Año</label>
+        <select id="anio"></select>
+      </div>
+    </div>
+    <div class="period" id="periodo"></div>
+    <details style="margin-top:6px">
+      <summary>Ajustes de cálculo</summary>
+      <div class="grid2" style="margin-top:8px">
+        <div><label class="f" for="cfgInicio">El mes empieza el día</label><input id="cfgInicio" type="number" min="1" max="28" inputmode="numeric"></div>
+        <div><label class="f" for="cfgDesayuno">Almuerzo (min)</label><input id="cfgDesayuno" type="number" min="0" inputmode="numeric"></div>
+        <div><label class="f" for="cfgEntrada">Horario: entrada</label><input id="cfgEntrada" type="time"></div>
+        <div><label class="f" for="cfgSalida">Horario: salida</label><input id="cfgSalida" type="time"></div>
+        <div><label class="f" for="cfgComida">Comida (min)</label><input id="cfgComida" type="number" min="0" inputmode="numeric"></div>
+        <div><label class="f">Jornada normal</label><input id="cfgJornada" disabled></div>
+      </div>
+      <p class="small">Total del día = horas entre entrada y salida − almuerzo − comida. Si un día no almuerzas o no comes, márcalo en ese día y no se resta. Si apuntas la parada de la comida (por ejemplo, de 14:00 a 15:00), esa hora ya no cuenta y no se resta otra vez. Lo que pase de la jornada normal son horas extra.</p>
+    </details>
+  </section>
+
+  <div id="days"></div>
+
+  <section class="card">
+    <label class="f" for="extraDate">Añadir otro día (por ejemplo, un sábado)</label>
+    <div class="addday">
+      <input id="extraDate" type="date">
+      <button class="btn" id="addDayBtn">Añadir</button>
+    </div>
+  </section>
+  <p class="small" style="text-align:center">Los datos se guardan solos en este móvil.</p>
+</main>
+
+
+<div class="bar">
+  <button class="btn" id="previewBtn">Ver PDF</button>
+  <button class="btn primary" id="shareBtn">Compartir PDF</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script>
+(() => {
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DIAS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const ESTADOS = ['Baja','Vacaciones','Festivo','Permiso'];
+const KEY = 'hojaHoras.v1';
+
+// ---------- storage ----------
+function load(){ try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e){ return {}; } }
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){} }
+const CFG = {v:2, inicio:23, entrada:'08:00', salida:'17:30', desayuno:30, comida:60};
+const state = Object.assign({ nombre:'', hojas:{}, obras:[] }, load());
+state.cfg = state.cfg && state.cfg.v === CFG.v ? Object.assign({}, CFG, state.cfg) : Object.assign({}, CFG, {inicio: (state.cfg && state.cfg.inicio) || 23});
+// Normal working day = scheduled span minus both breaks (8:00–17:30 − 0:30 − 1:00 = 8 h).
+const jornada = () => Math.max(0, toMin(state.cfg.salida) - toMin(state.cfg.entrada) - state.cfg.desayuno - state.cfg.comida);
+
+// Default month: a sheet runs from day `inicio` of the previous month to `inicio-1` of this one.
+const today = new Date();
+let mes = today.getMonth(), anio = today.getFullYear();
+if (today.getDate() >= state.cfg.inicio) { mes++; if (mes > 11) { mes = 0; anio++; } }
+if (state.ultimo) { mes = state.ultimo.mes; anio = state.ultimo.anio; }
+
+// ---------- helpers ----------
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,'0');
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const sheetKey = () => `${anio}-${pad(mes+1)}`;
+function toMin(t){ if(!t) return null; const [h,m] = t.split(':').map(Number); return isNaN(h) ? null : h*60 + (m||0); }
+function parseHoras(s){ // "8:30", "8'30", "8,5", "8.5", "9" -> minutes
+  if (s == null) return null; s = String(s).trim().replace(/[´’']/g, ':');
+  if (!s) return null;
+  if (s.includes(':')) { const [h,m] = s.split(':'); const v = (+h)*60 + (+(m||0)); return isNaN(v) ? null : v; }
+  const v = parseFloat(s.replace(',', '.')); return isNaN(v) ? null : Math.round(v*60);
+}
+const hora = t => (t || '').replace(/^0(\d)/, '$1');
+function fmt(min){ // office notation: 8'30, 9, 1'30
+  if (min == null) return '';
+  const neg = min < 0; min = Math.abs(Math.round(min));
+  const h = Math.floor(min/60), m = min % 60;
+  return (neg?'-':'') + (m ? `${h}'${pad(m)}` : `${h}`);
+}
+function periodo(){
+  const ini = state.cfg.inicio;
+  const start = new Date(anio, mes-1, ini);
+  const end = new Date(anio, mes, ini-1);
+  return {start, end};
+}
+function hoja(){
+  const k = sheetKey();
+  if (!state.hojas[k]) state.hojas[k] = { dias:{} };
+  return state.hojas[k];
+}
+function diasDelPeriodo(){
+  const {start, end} = periodo(), h = hoja(), out = [];
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
+    const k = iso(d), wd = d.getDay();
+    if ((wd !== 0 && wd !== 6) || h.dias[k]) out.push(new Date(d));
+  }
+  return out;
+}
+function dia(k){ const h = hoja(); if (!h.dias[k]) h.dias[k] = { tramos:[{ini:'',fin:'',obra:'',parte:''}] }; return h.dias[k]; }
+
+function calc(d){
+  if (!d || d.estado) return {total:null, extra:null};
+  const t = d.tramos.map(x => ({a:toMin(x.ini), b:toMin(x.fin)})).filter(x => x.a!=null && x.b!=null && x.b > x.a).sort((p,q)=>p.a-q.a);
+  let total = null, extra = null, desglose = null;
+  if (t.length) {
+    let worked = 0, maxGap = 0;
+    t.forEach((x,i) => { worked += x.b - x.a; if (i) maxGap = Math.max(maxGap, x.a - t[i-1].b); });
+    // Breaks are only taken on a long enough day; a 1 h+ gap between lines already is the lunch break.
+    const alm = !d.sinAlmuerzo && worked > 4*60 ? state.cfg.desayuno : 0;
+    const com = !d.sinComida && worked > 6*60 ? Math.max(0, state.cfg.comida - maxGap) : 0;
+    total = Math.max(0, worked - alm - com);
+    extra = Math.max(0, total - jornada());
+    desglose = [`${fmt(worked)} h trabajadas`];
+    if (alm) desglose.push(`− ${fmt(alm)} almuerzo`.replace(/− 0'30/, '− 30 min'));
+    if (com) desglose.push(`− ${com % 60 ? com + ' min' : fmt(com) + ' h'} comida`);
+    if (d.sinAlmuerzo) desglose.push('(sin almorzar)');
+    if (d.sinComida) desglose.push('(sin comer)');
+  }
+  if (d.totalManual != null) total = d.totalManual;
+  if (d.extraManual != null) extra = d.extraManual;
+  else if (d.totalManual != null) extra = Math.max(0, total - jornada());
+  if (d.totalManual != null || d.extraManual != null) desglose = ['corregido a mano'];
+  return {total, extra: extra || null, desglose};
+}
+
+// ---------- render ----------
+function renderHeader(){
+  $('nombre').value = state.nombre;
+  $('mes').innerHTML = MESES.map((m,i)=>`<option value="${i}" ${i===mes?'selected':''}>${m}</option>`).join('');
+  const ys = []; for (let y = today.getFullYear()-1; y <= today.getFullYear()+1; y++) ys.push(y);
+  $('anio').innerHTML = ys.map(y=>`<option ${y===anio?'selected':''}>${y}</option>`).join('');
+  $('cfgInicio').value = state.cfg.inicio;
+  $('cfgJornada').value = (fmt(jornada()) || '0') + ' h';
+  $('cfgEntrada').value = state.cfg.entrada;
+  $('cfgSalida').value = state.cfg.salida;
+  $('cfgDesayuno').value = state.cfg.desayuno;
+  $('cfgComida').value = state.cfg.comida;
+  const {start,end} = periodo();
+  $('periodo').innerHTML = `Del <b>${start.getDate()} ${MESES[start.getMonth()]}</b> al <b>${end.getDate()} ${MESES[end.getMonth()]} ${end.getFullYear()}</b>`;
+}
+function esc(s){ return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function renderDays(){
+  const h = hoja();
+  $('days').innerHTML = diasDelPeriodo().map(dt => {
+    const k = iso(dt), d = h.dias[k] || {tramos:[{ini:'',fin:'',obra:'',parte:''}]};
+    const wk = dt.getDay()===0 || dt.getDay()===6;
+    return `<section class="card day ${wk?'weekend':''}" data-k="${k}">
+      <div class="dhead">
+        <div class="dname">${DIAS[dt.getDay()]} ${dt.getDate()}<small>${MESES[dt.getMonth()].slice(0,3).toLowerCase()}</small></div>
+        <div class="badges" data-badges></div>
+      </div>
+      <div class="dbody">${bodyHtml(k, d, wk)}</div>
+    </section>`;
+  }).join('');
+  document.querySelectorAll('.day').forEach(el => updateBadges(el.dataset.k));
+  updateSums();
+}
+function bodyHtml(k, d, wk){
+  const chips = ESTADOS.map(s => `<button class="chip ${d.estado===s?'on':''}" data-act="estado" data-v="${s}">${s}</button>`).join('');
+  if (d.estado) {
+    return `<p class="empty-note">Marcado como <b>${d.estado}</b>.</p><div class="chips">${chips}</div>`;
+  }
+  const tramos = d.tramos.map((t,i) => `
+    <div class="tramo" data-i="${i}">
+      <div><label class="f">Entrada</label><input type="time" data-f="ini" value="${esc(t.ini)}"></div>
+      <div><label class="f">Salida</label><input type="time" data-f="fin" value="${esc(t.fin)}"></div>
+      <button class="btn icon del" data-act="deltramo" aria-label="Quitar obra" title="Quitar">×</button>
+      <div class="obra-row">
+        <div class="obra-wrap"><label class="f">Obra</label><input data-f="obra" value="${esc(t.obra)}" placeholder="Nombre de la obra" autocapitalize="words" autocomplete="off"></div>
+        <div><label class="f">Parte nº</label><input data-f="parte" value="${esc(t.parte)}" inputmode="numeric"></div>
+      </div>
+    </div>`).join('');
+  const r = calc(d);
+  return `${tramos}
+    <button class="btn ghost" data-act="addtramo">+ Añadir línea (otra obra u horario)</button>
+    <p class="small" data-desglose style="margin:10px 0 0"></p>
+    <div class="chips">
+      <button class="chip ${d.sinAlmuerzo?'on':''}" data-act="sinAlmuerzo">No he almorzado</button>
+      <button class="chip ${d.sinComida?'on':''}" data-act="sinComida">No he comido</button>
+    </div>
+    <div class="chips">
+      <button class="chip" data-act="normal">Horario normal (${hora(state.cfg.entrada)} a ${hora(state.cfg.salida)})</button>
+      <button class="chip" data-act="copiar">Igual que el día anterior</button>
+      ${chips}
+      ${wk ? `<button class="chip" data-act="quitardia">Quitar día</button>` : ''}
+    </div>
+    <button class="link" data-act="override">Corregir total a mano</button>
+    <div class="override grid2 ${d.totalManual!=null||d.extraManual!=null?'open':''}">
+      <div><label class="f">Total horas</label><input data-f="totalManual" inputmode="decimal" placeholder="${fmt(calcAuto(d).total)}" value="${d.totalManual!=null?fmt(d.totalManual):''}"></div>
+      <div><label class="f">Horas extra</label><input data-f="extraManual" inputmode="decimal" placeholder="${fmt(calcAuto(d).extra)||'0'}" value="${d.extraManual!=null?fmt(d.extraManual):''}"></div>
+    </div>`;
+}
+// Every site written before, most recently used first: the days just before this one count most.
+function obrasRecientes(k){
+  const seen = [], dias = [];
+  Object.values(state.hojas).forEach(h => Object.entries(h.dias).forEach(([dk, d]) => dias.push([dk, d])));
+  dias.sort((a,b) => (a[0] <= k) === (b[0] <= k) ? (a[0] < b[0] ? 1 : -1) : (a[0] <= k ? -1 : 1));
+  dias.forEach(([, d]) => (d.tramos || []).slice().reverse().forEach(t => { const o = (t.obra || '').trim(); if (o && !seen.includes(o)) seen.push(o); }));
+  state.obras.forEach(o => { if (!seen.includes(o)) seen.push(o); });
+  return seen;
+}
+// Dropdown of previously written sites, filtered by what has been typed so far.
+const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+function hideSugg(){ document.querySelectorAll('.sugg').forEach(x => x.remove()); }
+function showSugg(inp){
+  hideSugg();
+  const k = inp.closest('.day').dataset.k, q = norm(inp.value.trim());
+  const list = obrasRecientes(k).filter(o => norm(o).includes(q) && o !== inp.value.trim());
+  if (!list.length) return;
+  const box = document.createElement('div'); box.className = 'sugg';
+  box.innerHTML = list.map(o => `<button type="button" data-v="${esc(o)}">${esc(o)}</button>`).join('');
+  box.addEventListener('pointerdown', e => e.preventDefault()); // keep focus so blur doesn't close it first
+  box.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    inp.value = b.dataset.v; inp.dispatchEvent(new Event('input', {bubbles:true})); inp.dispatchEvent(new Event('change', {bubbles:true}));
+    hideSugg(); inp.blur();
+  });
+  inp.parentElement.appendChild(box);
+}
+document.addEventListener('focusin', e => { if (e.target.dataset && e.target.dataset.f === 'obra') showSugg(e.target); });
+document.addEventListener('focusout', e => { if (e.target.dataset && e.target.dataset.f === 'obra') setTimeout(hideSugg, 150); });
+function calcAuto(d){ return calc(Object.assign({}, d, {totalManual:null, extraManual:null})); }
+function updateBadges(k){
+  const el = document.querySelector(`.day[data-k="${k}"] [data-badges]`); if (!el) return;
+  const d = hoja().dias[k];
+  if (d && d.estado) { el.innerHTML = `<span class="badge status">${d.estado}</span>`; return; }
+  const r = calc(d);
+  const ds = el.closest('.day').querySelector('[data-desglose]');
+  if (ds) ds.textContent = r.desglose ? r.desglose.join(' ') + (r.total != null && !d.totalManual ? ` = ${fmt(r.total)} h` : '') : '';
+  el.innerHTML = (r.total!=null ? `<span class="badge">${fmt(r.total)} h</span>` : '') + (r.extra ? `<span class="badge extra">+${fmt(r.extra)}</span>` : '');
+}
+function totales(){
+  let t = 0, e = 0, n = 0;
+  diasDelPeriodo().forEach(dt => { const r = calc(hoja().dias[iso(dt)]); if (r.total) { t += r.total; n++; } if (r.extra) e += r.extra; });
+  return {t, e, n};
+}
+function updateSums(){ const {t,e,n} = totales(); $('sumTotal').textContent = fmt(t)||'0'; $('sumExtra').textContent = fmt(e)||'0'; $('sumDays').textContent = n; }
+function rerenderDay(k){
+  const el = document.querySelector(`.day[data-k="${k}"]`); if (!el) return renderDays();
+  const dt = new Date(k+'T12:00'); const wk = dt.getDay()===0||dt.getDay()===6;
+  el.querySelector('.dbody').innerHTML = bodyHtml(k, hoja().dias[k] || {tramos:[{}]}, wk);
+  updateBadges(k); updateSums();
+}
+
+// ---------- events ----------
+$('nombre').addEventListener('input', e => { state.nombre = e.target.value; save(); });
+$('mes').addEventListener('change', e => { mes = +e.target.value; state.ultimo = {mes, anio}; save(); renderHeader(); renderDays(); });
+$('anio').addEventListener('change', e => { anio = +e.target.value; state.ultimo = {mes, anio}; save(); renderHeader(); renderDays(); });
+$('cfgInicio').addEventListener('change', e => { const v = Math.min(28, Math.max(1, +e.target.value||23)); state.cfg.inicio = v; save(); renderHeader(); renderDays(); });
+['cfgEntrada','cfgSalida'].forEach(id => $(id).addEventListener('change', e => { if (!e.target.value) return; state.cfg[id === 'cfgEntrada' ? 'entrada' : 'salida'] = e.target.value; save(); renderHeader(); renderDays(); }));
+$('cfgDesayuno').addEventListener('change', e => { state.cfg.desayuno = Math.max(0, +e.target.value||0); save(); renderHeader(); renderDays(); });
+$('cfgComida').addEventListener('change', e => { state.cfg.comida = Math.max(0, +e.target.value||0); save(); renderHeader(); renderDays(); });
+
+const daysEl = $('days');
+daysEl.addEventListener('input', e => {
+  const inp = e.target, f = inp.dataset.f; if (!f) return;
+  const k = inp.closest('.day').dataset.k, d = dia(k);
+  if (f === 'totalManual' || f === 'extraManual') { d[f] = inp.value.trim() ? parseHoras(inp.value) : null; }
+  else {
+    const tr = inp.closest('.tramo'), i = +tr.dataset.i; d.tramos[i][f] = inp.value;
+    if (f === 'obra') showSugg(inp);
+  }
+  save(); updateBadges(k); updateSums();
+});
+daysEl.addEventListener('change', e => {
+  if (e.target.dataset.f === 'obra') { const v = e.target.value.trim(); if (v) { state.obras = [v, ...state.obras.filter(o => o !== v)].slice(0,60); save(); renderHeader(); } }
+  // after finishing the first block's exit, suggest nothing; keep simple
+});
+daysEl.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const k = b.closest('.day').dataset.k, d = dia(k), act = b.dataset.act;
+  if (act === 'addtramo') {
+    const last = d.tramos[d.tramos.length-1];
+    d.tramos.push({ini: last && last.fin || '', fin:'', obra:'', parte:''});
+  } else if (act === 'deltramo') {
+    const i = +b.closest('.tramo').dataset.i; d.tramos.splice(i,1);
+    if (!d.tramos.length) d.tramos.push({ini:'',fin:'',obra:'',parte:''});
+  } else if (act === 'sinAlmuerzo' || act === 'sinComida') {
+    d[act] = !d[act];
+  } else if (act === 'normal') {
+    const t0 = d.tramos[0];
+    d.tramos[0] = Object.assign({}, t0, {ini: state.cfg.entrada, fin: state.cfg.salida});
+  } else if (act === 'estado') {
+    d.estado = d.estado === b.dataset.v ? null : b.dataset.v;
+  } else if (act === 'copiar') {
+    const prev = anterior(k);
+    if (!prev) { toast('No hay ningún día anterior con datos'); return; }
+    d.tramos = prev.tramos.map(t => Object.assign({}, t)); d.estado = prev.estado || null;
+    d.sinAlmuerzo = !!prev.sinAlmuerzo; d.sinComida = !!prev.sinComida;
+  } else if (act === 'override') {
+    b.nextElementSibling.classList.toggle('open'); return;
+  } else if (act === 'quitardia') {
+    delete hoja().dias[k]; save(); renderDays(); return;
+  }
+  save(); rerenderDay(k);
+});
+function anterior(k){
+  const ds = diasDelPeriodo().map(iso); let i = ds.indexOf(k) - 1;
+  const h = hoja();
+  for (; i >= 0; i--) { const d = h.dias[ds[i]]; if (d && (d.estado || d.tramos.some(t => t.ini || t.obra))) return d; }
+  return null;
+}
+$('addDayBtn').addEventListener('click', () => {
+  const v = $('extraDate').value; if (!v) { toast('Elige una fecha'); return; }
+  const {start,end} = periodo(), dt = new Date(v+'T12:00');
+  if (dt < new Date(iso(start)+'T00:00') || dt > new Date(iso(end)+'T23:59')) { toast('Esa fecha no está en este mes de horas'); return; }
+  dia(v); save(); renderDays();
+  setTimeout(() => document.querySelector(`.day[data-k="${v}"]`)?.scrollIntoView({behavior:'smooth', block:'center'}), 50);
+});
+
+// ---------- PDF ----------
+function nombreArchivo(){
+  const n = (state.nombre || 'SIN NOMBRE').trim().toUpperCase();
+  return `${MESES[mes].toUpperCase()} ${String(anio).slice(2)}- ${n}.pdf`.replace(/[\\/:*?"<>|]/g,'');
+}
+// Logo for the PDF header, read once from the page's own copy.
+let logoData = null;
+(() => { const im = new Image(); im.onload = () => { const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+  c.getContext('2d').drawImage(im, 0, 0); try { logoData = c.toDataURL('image/png'); } catch(e){} }; im.src = 'logo.png'; })();
+function buildPdf(){
+  if (!window.jspdf) { toast('Necesitas conexión la primera vez para crear el PDF'); return null; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  const {start,end} = periodo();
+  if (logoData) doc.addImage(logoData, 'PNG', 48, 26, 68, 36);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  doc.text(`Trabajador: ${(state.nombre||'').toUpperCase()}`, 130, 50);
+  doc.text(`Mes: ${MESES[mes]}`, 130, 66);
+  doc.text(`del  ${start.getDate()} ${MESES[start.getMonth()]}  al ${end.getDate()} ${MESES[end.getMonth()]} ${end.getFullYear()}`, 547, 66, {align:'right'});
+
+  const rows = [];
+  diasDelPeriodo().forEach(dt => {
+    const k = iso(dt), d = hoja().dias[k];
+    if (!d) { rows.push([dt.getDate(),'','','','','','']); return; }
+    if (d.estado) { rows.push([dt.getDate(),'','',d.estado,'','','']); return; }
+    const ts = d.tramos.filter(t => t.ini || t.fin || t.obra || t.parte);
+    if (!ts.length) { rows.push([dt.getDate(),'','','','','','']); return; }
+    const r = calc(d);
+    ts.forEach((t,i) => {
+      const last = i === ts.length-1;
+      rows.push([i ? '' : dt.getDate(), hora(t.ini), hora(t.fin), t.obra, t.parte, last ? fmt(r.total) : '', last && r.extra ? fmt(r.extra) : '']);
+    });
+  });
+  const tot = totales();
+  doc.autoTable({
+    startY: 82, margin:{left:48, right:48},
+    head: [['Dia','Hora inicio','Hora final','Obra','Parte número','Total horas','Horas extra']],
+    body: rows,
+    foot: [['','','','TOTAL','', fmt(tot.t)||'0', fmt(tot.e)||'0']],
+    theme: 'grid',
+    styles: { font:'helvetica', fontSize:10, cellPadding:3.5, lineColor:[0,0,0], lineWidth:.6, textColor:[0,0,0], fillColor:[253,242,208], minCellHeight:17 },
+    alternateRowStyles: { fillColor:[251,230,170] },
+    headStyles: { fillColor:[217,217,217], fontStyle:'bold', halign:'center', valign:'bottom', minCellHeight:28, lineWidth:.9 },
+    footStyles: { fillColor:[217,217,217], fontStyle:'bold', halign:'center' },
+    columnStyles: {
+      0:{halign:'center', fontStyle:'bold', cellWidth:36}, 1:{halign:'center', cellWidth:56}, 2:{halign:'center', cellWidth:56},
+      3:{cellWidth:'auto'}, 4:{halign:'center', cellWidth:68}, 5:{halign:'center', cellWidth:60}, 6:{halign:'center', cellWidth:56}
+    },
+    didParseCell: data => { if (data.section==='foot' && data.column.index===3) data.cell.styles.halign='right'; }
+  });
+  return doc;
+}
+function check(){
+  if (!state.nombre.trim()) { toast('Escribe tu nombre arriba'); $('nombre').focus(); return false; }
+  return true;
+}
+$('previewBtn').addEventListener('click', () => {
+  if (!check()) return;
+  const doc = buildPdf(); if (!doc) return;
+  const url = URL.createObjectURL(doc.output('blob'));
+  const w = window.open(url, '_blank');
+  if (!w) doc.save(nombreArchivo());
+});
+$('shareBtn').addEventListener('click', async () => {
+  if (!check()) return;
+  const doc = buildPdf(); if (!doc) return;
+  const file = new File([doc.output('blob')], nombreArchivo(), {type:'application/pdf'});
+  if (navigator.canShare && navigator.canShare({files:[file]})) {
+    try { await navigator.share({ files:[file], title: file.name, text: `Hoja de horas de ${state.nombre} – ${MESES[mes]} ${anio}` }); }
+    catch (err) { if (err.name !== 'AbortError') { doc.save(file.name); toast('PDF descargado. Envíalo desde Descargas.'); } }
+  } else {
+    doc.save(file.name); toast('PDF descargado. Adjúntalo en WhatsApp o en un correo.');
+  }
+});
+
+let tt; function toast(msg){ const el = $('toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(tt); tt = setTimeout(()=>el.classList.remove('show'), 2600); }
+
+renderHeader(); renderDays();
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+</script>
+</body>
+</html>

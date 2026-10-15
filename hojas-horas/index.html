@@ -113,11 +113,14 @@ details summary{cursor:pointer;color:var(--muted);font-size:14px;min-height:36px
         <select id="anio"></select>
       </div>
     </div>
+    <div class="grid2" style="margin-top:10px">
+      <div><label class="f" for="desde">Desde</label><input id="desde" type="date"></div>
+      <div><label class="f" for="hasta">Hasta</label><input id="hasta" type="date"></div>
+    </div>
     <div class="period" id="periodo"></div>
     <details style="margin-top:6px">
       <summary>Ajustes de cálculo</summary>
       <div class="grid2" style="margin-top:8px">
-        <div><label class="f" for="cfgInicio">El mes empieza el día</label><input id="cfgInicio" type="number" min="1" max="28" inputmode="numeric"></div>
         <div><label class="f" for="cfgDesayuno">Almuerzo (min)</label><input id="cfgDesayuno" type="number" min="0" inputmode="numeric"></div>
         <div><label class="f" for="cfgEntrada">Horario: entrada</label><input id="cfgEntrada" type="time"></div>
         <div><label class="f" for="cfgSalida">Horario: salida</label><input id="cfgSalida" type="time"></div>
@@ -190,11 +193,15 @@ function fmt(min){ // office notation: 8'30, 9, 1'30
   const h = Math.floor(min/60), m = min % 60;
   return (neg?'-':'') + (m ? `${h}'${pad(m)}` : `${h}`);
 }
-function periodo(){
+// Default sheet runs from day `inicio` of the previous month to the day before in this one;
+// each sheet can override both dates.
+function periodoDefecto(){
   const ini = state.cfg.inicio;
-  const start = new Date(anio, mes-1, ini);
-  const end = new Date(anio, mes, ini-1);
-  return {start, end};
+  return {start: new Date(anio, mes-1, ini), end: new Date(anio, mes, ini-1)};
+}
+function periodo(){
+  const def = periodoDefecto(), h = state.hojas[sheetKey()] || {};
+  return {start: h.desde ? new Date(h.desde+'T12:00') : def.start, end: h.hasta ? new Date(h.hasta+'T12:00') : def.end};
 }
 function hoja(){
   const k = sheetKey();
@@ -242,14 +249,16 @@ function renderHeader(){
   $('mes').innerHTML = MESES.map((m,i)=>`<option value="${i}" ${i===mes?'selected':''}>${m}</option>`).join('');
   const ys = []; for (let y = today.getFullYear()-1; y <= today.getFullYear()+1; y++) ys.push(y);
   $('anio').innerHTML = ys.map(y=>`<option ${y===anio?'selected':''}>${y}</option>`).join('');
-  $('cfgInicio').value = state.cfg.inicio;
   $('cfgJornada').value = (fmt(jornada()) || '0') + ' h';
   $('cfgEntrada').value = state.cfg.entrada;
   $('cfgSalida').value = state.cfg.salida;
   $('cfgDesayuno').value = state.cfg.desayuno;
   $('cfgComida').value = state.cfg.comida;
   const {start,end} = periodo();
-  $('periodo').innerHTML = `Del <b>${start.getDate()} ${MESES[start.getMonth()]}</b> al <b>${end.getDate()} ${MESES[end.getMonth()]} ${end.getFullYear()}</b>`;
+  $('desde').value = iso(start); $('hasta').value = iso(end);
+  const h = state.hojas[sheetKey()] || {};
+  $('periodo').innerHTML = `Del <b>${start.getDate()} ${MESES[start.getMonth()]}</b> al <b>${end.getDate()} ${MESES[end.getMonth()]} ${end.getFullYear()}</b>` +
+    (h.desde || h.hasta ? ` · <button class="link" id="resetPeriodo" style="min-height:0;padding:0">volver a las fechas normales</button>` : '');
 }
 function esc(s){ return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
@@ -358,9 +367,19 @@ function rerenderDay(k){
 
 // ---------- events ----------
 $('nombre').addEventListener('input', e => { state.nombre = e.target.value; save(); });
+['desde','hasta'].forEach(id => $(id).addEventListener('change', e => {
+  const v = e.target.value; if (!v) { renderHeader(); return; }
+  const h = hoja(), other = id === 'desde' ? $('hasta').value : $('desde').value;
+  if ((id === 'desde' && other && v > other) || (id === 'hasta' && other && v < other)) { toast('La fecha "Desde" tiene que ir antes que "Hasta"'); renderHeader(); return; }
+  if (Math.abs(new Date(v) - new Date(other)) > 70*864e5) { toast('Como mucho unos dos meses por hoja'); renderHeader(); return; }
+  h[id] = v; save(); renderHeader(); renderDays();
+}));
+$('periodo').addEventListener('click', e => {
+  if (e.target.id !== 'resetPeriodo') return;
+  const h = hoja(); delete h.desde; delete h.hasta; save(); renderHeader(); renderDays();
+});
 $('mes').addEventListener('change', e => { mes = +e.target.value; state.ultimo = {mes, anio}; save(); renderHeader(); renderDays(); });
 $('anio').addEventListener('change', e => { anio = +e.target.value; state.ultimo = {mes, anio}; save(); renderHeader(); renderDays(); });
-$('cfgInicio').addEventListener('change', e => { const v = Math.min(28, Math.max(1, +e.target.value||23)); state.cfg.inicio = v; save(); renderHeader(); renderDays(); });
 ['cfgEntrada','cfgSalida'].forEach(id => $(id).addEventListener('change', e => { if (!e.target.value) return; state.cfg[id === 'cfgEntrada' ? 'entrada' : 'salida'] = e.target.value; save(); renderHeader(); renderDays(); }));
 $('cfgDesayuno').addEventListener('change', e => { state.cfg.desayuno = Math.max(0, +e.target.value||0); save(); renderHeader(); renderDays(); });
 $('cfgComida').addEventListener('change', e => { state.cfg.comida = Math.max(0, +e.target.value||0); save(); renderHeader(); renderDays(); });

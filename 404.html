@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Página no encontrada</title>
+  <script>
+    // Phones often capitalise or slightly mistype the path: send those visitors to the right app.
+    (function () {
+      var p = location.pathname.toLowerCase();
+      var to = null;
+      if (p.indexOf('hora') !== -1 || p.indexOf('rectec') !== -1) to = '/hojas-horas/';
+      else if (p.indexOf('clipa') !== -1) to = '/clipa/' + p.replace(/^\/clipa\/?/, '');
+      else if (p.indexOf('parla') !== -1) to = '/parla/';
+      else if (p !== location.pathname) to = p;
+      if (to && to !== location.pathname) location.replace(to + location.search + location.hash);
+    })();
+  </script>
+  <style>
+    body{margin:0;font:16px/1.5 system-ui,-apple-system,sans-serif;background:#f3f4ef;color:#3c3c3b;padding:40px 16px;text-align:center}
+    @media (prefers-color-scheme: dark){ body{background:#161715;color:#eeefe9} a{color:#c3d400} }
+    a{color:#3c3c3b;font-weight:600}
+  </style>
+</head>
+<body>
+  <h1>Página no encontrada</h1>
+  <p>¿Buscabas la <a href="/hojas-horas/">Hoja de horas</a>?</p>
+</body>
+</html>

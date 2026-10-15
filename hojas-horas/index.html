@@ -79,6 +79,7 @@ button:disabled{opacity:.45}
 .sugg button{display:block;width:100%;text-align:left;background:none;color:var(--ink);border-radius:0;min-height:44px;padding:0 12px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sugg button:active,.sugg button:hover{background:var(--soft)}
+.chip.toggle.on{background:var(--accent);color:var(--accent-ink);font-weight:700}
 .chip.on{background:var(--ink);color:var(--card)}
 .override{display:none;margin-top:10px}
 .override.open{display:grid}
@@ -333,8 +334,8 @@ function bodyHtml(k, d, wk){
     <button class="btn ghost" data-act="addtramo">+ Añadir línea (otra obra u horario)</button>
     <p class="small" data-desglose style="margin:10px 0 0"></p>
     <div class="chips">
-      <button class="chip ${d.sinAlmuerzo?'on':''}" data-act="sinAlmuerzo">No he almorzado</button>
-      <button class="chip ${d.sinComida?'on':''}" data-act="sinComida">No he comido</button>
+      <button class="chip toggle ${d.sinAlmuerzo?'on':''}" data-act="sinAlmuerzo" aria-pressed="${!!d.sinAlmuerzo}">${d.sinAlmuerzo?'✓ ':''}No he almorzado</button>
+      <button class="chip toggle ${d.sinComida?'on':''}" data-act="sinComida" aria-pressed="${!!d.sinComida}">${d.sinComida?'✓ ':''}No he comido</button>
     </div>
     <div class="chips">
       <button class="chip" data-act="normal">Horario normal (${hora(state.cfg.entrada)} a ${hora(state.cfg.salida)})</button>

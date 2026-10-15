@@ -304,8 +304,8 @@ function bodyHtml(k, d, wk){
   }
   const tramos = d.tramos.map((t,i) => `
     <div class="tramo" data-i="${i}">
-      <div><label class="f">Entrada</label><input class="time-in" data-f="ini" value="${esc(hora(t.ini))}" inputmode="decimal" placeholder="8:00" autocomplete="off"></div>
-      <div><label class="f">Salida</label><input class="time-in" data-f="fin" value="${esc(hora(t.fin))}" inputmode="decimal" placeholder="17:30" autocomplete="off"></div>
+      <div><label class="f">Entrada</label><input class="time-in" data-f="ini" value="${esc(hora(t.ini))}" inputmode="decimal" placeholder="--:--" autocomplete="off"></div>
+      <div><label class="f">Salida</label><input class="time-in" data-f="fin" value="${esc(hora(t.fin))}" inputmode="decimal" placeholder="--:--" autocomplete="off"></div>
       <button class="btn icon del" data-act="deltramo" aria-label="Quitar obra" title="Quitar">×</button>
       <div class="obra-row">
         <div class="obra-wrap"><label class="f">Obra</label><input data-f="obra" value="${esc(t.obra)}" placeholder="Nombre de la obra" autocapitalize="words" autocomplete="off"></div>

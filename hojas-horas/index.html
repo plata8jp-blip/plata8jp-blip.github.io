@@ -42,7 +42,8 @@ label.f{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
 input,select{font:inherit;color:var(--ink);background:var(--input);border:1px solid var(--line);border-radius:10px;
   padding:10px;width:100%;min-height:44px;font-size:16px}
 input:focus,select:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+input[type=date]{min-width:0;-webkit-appearance:none;appearance:none;display:block}
 .grid3{display:grid;grid-template-columns:1.3fr 1fr .8fr;gap:10px}
 .period{margin-top:10px;font-size:14px;color:var(--muted)}
 .period b{color:var(--ink)}
@@ -65,6 +66,7 @@ input:focus,select:focus{outline:2px solid var(--accent);outline-offset:0;border
 button{font:inherit;cursor:pointer;border:0;border-radius:10px;min-height:44px;padding:0 14px;touch-action:manipulation}
 .btn{background:var(--chip);color:var(--ink)}
 .btn:active{transform:scale(.98)}
+button:disabled{opacity:.45}
 .btn.primary{background:var(--accent);color:var(--accent-ink);font-weight:700}
 .btn.ghost{background:transparent;border:1px dashed var(--line);color:var(--muted);width:100%}
 .btn.icon{width:44px;padding:0;display:grid;place-items:center;background:transparent;color:var(--muted);font-size:20px}
@@ -87,6 +89,19 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px;min-height:44px;p
 .bar .btn{flex:1;max-width:300px;min-height:52px;font-size:17px}
 .addday{display:flex;gap:8px}
 .addday input{flex:1}
+.time-btn{width:100%;min-height:48px;background:var(--input);border:1px solid var(--line);color:var(--ink);font-size:18px;font-weight:600;text-align:left;padding:0 12px}
+.time-btn.empty{color:var(--muted);font-weight:400;font-size:16px}
+.sheet-bg{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+.sheet-bg[hidden]{display:none}
+.sheet{background:var(--card);width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+.pk-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;color:var(--muted);font-size:15px}
+.pk-head b{font-size:32px;color:var(--ink)}
+.pk-label{font-size:13px;color:var(--muted);margin:10px 0 6px}
+.pk-hours{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.pk-mins{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.pk-hours button,.pk-mins button{min-height:46px;background:var(--chip);color:var(--ink);font-size:17px;font-weight:600;padding:0}
+.pk-hours button.on,.pk-mins button.on{background:var(--accent);color:var(--accent-ink)}
+.pk-actions{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:8px;margin-top:16px}
 .toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--card);
   padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9;max-width:90vw;text-align:center}
 .toast.show{opacity:1}
@@ -123,8 +138,8 @@ details summary{cursor:pointer;color:var(--muted);font-size:14px;min-height:36px
       <summary>Ajustes de cálculo</summary>
       <div class="grid2" style="margin-top:8px">
         <div><label class="f" for="cfgDesayuno">Almuerzo (min)</label><input id="cfgDesayuno" type="number" min="0" inputmode="numeric"></div>
-        <div><label class="f" for="cfgEntrada">Horario: entrada</label><input id="cfgEntrada" type="time"></div>
-        <div><label class="f" for="cfgSalida">Horario: salida</label><input id="cfgSalida" type="time"></div>
+        <div><label class="f" for="cfgEntrada">Horario: entrada</label><button type="button" class="time-btn" id="cfgEntrada"></button></div>
+        <div><label class="f" for="cfgSalida">Horario: salida</label><button type="button" class="time-btn" id="cfgSalida"></button></div>
         <div><label class="f" for="cfgComida">Comida (min)</label><input id="cfgComida" type="number" min="0" inputmode="numeric"></div>
         <div><label class="f">Jornada normal</label><input id="cfgJornada" disabled></div>
       </div>
@@ -150,6 +165,20 @@ details summary{cursor:pointer;color:var(--muted);font-size:14px;min-height:36px
   <button class="btn primary" id="shareBtn">Compartir PDF</button>
 </div>
 <div class="toast" id="toast"></div>
+<div class="sheet-bg" id="sheetBg" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pkTitle">
+    <div class="pk-head"><span id="pkTitle"></span><b id="pkValue">--:--</b></div>
+    <div class="pk-label">Hora</div>
+    <div class="pk-hours" id="pkHours"></div>
+    <div class="pk-label">Minutos</div>
+    <div class="pk-mins" id="pkMins"></div>
+    <div class="pk-actions">
+      <button class="btn" id="pkClear">Borrar</button>
+      <button class="btn" id="pkCancel">Cancelar</button>
+      <button class="btn primary" id="pkOk">Aceptar</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -251,8 +280,8 @@ function renderHeader(){
   const ys = []; for (let y = today.getFullYear()-1; y <= today.getFullYear()+1; y++) ys.push(y);
   $('anio').innerHTML = ys.map(y=>`<option ${y===anio?'selected':''}>${y}</option>`).join('');
   $('cfgJornada').value = (fmt(jornada()) || '0') + ' h';
-  $('cfgEntrada').value = state.cfg.entrada;
-  $('cfgSalida').value = state.cfg.salida;
+  $('cfgEntrada').textContent = hora(state.cfg.entrada);
+  $('cfgSalida').textContent = hora(state.cfg.salida);
   $('cfgDesayuno').value = state.cfg.desayuno;
   $('cfgComida').value = state.cfg.comida;
   const {start,end} = periodo();
@@ -286,8 +315,8 @@ function bodyHtml(k, d, wk){
   }
   const tramos = d.tramos.map((t,i) => `
     <div class="tramo" data-i="${i}">
-      <div><label class="f">Entrada</label><input type="time" data-f="ini" value="${esc(t.ini)}"></div>
-      <div><label class="f">Salida</label><input type="time" data-f="fin" value="${esc(t.fin)}"></div>
+      <div><label class="f">Entrada</label><button type="button" class="time-btn ${t.ini?'':'empty'}" data-act="hora" data-v="ini">${t.ini ? hora(t.ini) : 'Elegir'}</button></div>
+      <div><label class="f">Salida</label><button type="button" class="time-btn ${t.fin?'':'empty'}" data-act="hora" data-v="fin">${t.fin ? hora(t.fin) : 'Elegir'}</button></div>
       <button class="btn icon del" data-act="deltramo" aria-label="Quitar obra" title="Quitar">×</button>
       <div class="obra-row">
         <div class="obra-wrap"><label class="f">Obra</label><input data-f="obra" value="${esc(t.obra)}" placeholder="Nombre de la obra" autocapitalize="words" autocomplete="off"></div>
@@ -381,7 +410,10 @@ $('periodo').addEventListener('click', e => {
 });
 $('mes').addEventListener('change', e => { mes = +e.target.value; state.ultimo = {mes, anio}; save(); renderHeader(); renderDays(); });
 $('anio').addEventListener('change', e => { anio = +e.target.value; state.ultimo = {mes, anio}; save(); renderHeader(); renderDays(); });
-['cfgEntrada','cfgSalida'].forEach(id => $(id).addEventListener('change', e => { if (!e.target.value) return; state.cfg[id === 'cfgEntrada' ? 'entrada' : 'salida'] = e.target.value; save(); renderHeader(); renderDays(); }));
+['cfgEntrada','cfgSalida'].forEach(id => $(id).addEventListener('click', () => {
+  const key = id === 'cfgEntrada' ? 'entrada' : 'salida';
+  openPicker(`Horario normal: ${key}`, state.cfg[key], v => { if (!v) return; state.cfg[key] = v; save(); renderHeader(); renderDays(); }, false);
+}));
 $('cfgDesayuno').addEventListener('change', e => { state.cfg.desayuno = Math.max(0, +e.target.value||0); save(); renderHeader(); renderDays(); });
 $('cfgComida').addEventListener('change', e => { state.cfg.comida = Math.max(0, +e.target.value||0); save(); renderHeader(); renderDays(); });
 
@@ -409,6 +441,13 @@ daysEl.addEventListener('click', e => {
   } else if (act === 'deltramo') {
     const i = +b.closest('.tramo').dataset.i; d.tramos.splice(i,1);
     if (!d.tramos.length) d.tramos.push({ini:'',fin:'',obra:'',parte:''});
+  } else if (act === 'hora') {
+    const i = +b.closest('.tramo').dataset.i, f = b.dataset.v;
+    const dt = new Date(k+'T12:00');
+    openPicker(`${f === 'ini' ? 'Entrada' : 'Salida'} · ${DIAS[dt.getDay()]} ${dt.getDate()}`, d.tramos[i][f], v => {
+      d.tramos[i][f] = v; save(); rerenderDay(k);
+    });
+    return;
   } else if (act === 'sinAlmuerzo' || act === 'sinComida') {
     d[act] = !d[act];
   } else if (act === 'normal') {
@@ -516,6 +555,30 @@ $('shareBtn').addEventListener('click', async () => {
     doc.save(file.name); toast('PDF descargado. Adjúntalo en WhatsApp o en un correo.');
   }
 });
+
+// Simple time picker: tap an hour, tap the minutes, Aceptar.
+let pk = null;
+function openPicker(title, value, onDone, canClear = true){
+  const [h, m] = value ? value.split(':').map(Number) : [null, 0];
+  pk = {h, m: [0,15,30,45].includes(m) ? m : 0, onDone};
+  $('pkTitle').textContent = title;
+  $('pkClear').hidden = !canClear;
+  $('sheetBg').hidden = false;
+  drawPicker();
+}
+function drawPicker(){
+  $('pkHours').innerHTML = Array.from({length:24}, (_, h) => `<button type="button" data-h="${h}" class="${pk.h===h?'on':''}">${h}</button>`).join('');
+  $('pkMins').innerHTML = [0,15,30,45].map(m => `<button type="button" data-m="${m}" class="${pk.m===m?'on':''}">${pad(m)}</button>`).join('');
+  $('pkValue').textContent = pk.h == null ? '--:--' : `${pk.h}:${pad(pk.m)}`;
+  $('pkOk').disabled = pk.h == null;
+}
+function closePicker(){ $('sheetBg').hidden = true; pk = null; }
+$('pkHours').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { pk.h = +b.dataset.h; drawPicker(); } });
+$('pkMins').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { pk.m = +b.dataset.m; drawPicker(); } });
+$('pkOk').addEventListener('click', () => { if (pk.h == null) return; const f = pk.onDone, v = `${pad(pk.h)}:${pad(pk.m)}`; closePicker(); f(v); });
+$('pkClear').addEventListener('click', () => { const f = pk.onDone; closePicker(); f(''); });
+$('pkCancel').addEventListener('click', closePicker);
+$('sheetBg').addEventListener('click', e => { if (e.target.id === 'sheetBg') closePicker(); });
 
 let tt; function toast(msg){ const el = $('toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(tt); tt = setTimeout(()=>el.classList.remove('show'), 2600); }
 

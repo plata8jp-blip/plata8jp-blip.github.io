@@ -127,8 +127,8 @@ details summary{cursor:pointer;color:var(--muted);font-size:14px;min-height:36px
       <summary>Ajustes de cálculo</summary>
       <div class="grid2" style="margin-top:8px">
         <div><label class="f" for="cfgDesayuno">Almuerzo (min)</label><input id="cfgDesayuno" type="number" min="0" inputmode="numeric"></div>
-        <div><label class="f" for="cfgEntrada">Horario: entrada</label><input class="time-in" id="cfgEntrada" inputmode="decimal" autocomplete="off"></div>
-        <div><label class="f" for="cfgSalida">Horario: salida</label><input class="time-in" id="cfgSalida" inputmode="decimal" autocomplete="off"></div>
+        <div><label class="f" for="cfgEntrada">Horario: entrada</label><input class="time-in" id="cfgEntrada" inputmode="numeric" autocomplete="off"></div>
+        <div><label class="f" for="cfgSalida">Horario: salida</label><input class="time-in" id="cfgSalida" inputmode="numeric" autocomplete="off"></div>
         <div><label class="f" for="cfgComida">Comida (min)</label><input id="cfgComida" type="number" min="0" inputmode="numeric"></div>
         <div><label class="f">Jornada normal</label><input id="cfgJornada" disabled></div>
       </div>
@@ -192,6 +192,17 @@ function parseHoras(s){ // "8:30", "8'30", "8,5", "8.5", "9" -> minutes
   const v = parseFloat(s.replace(',', '.')); return isNaN(v) ? null : Math.round(v*60);
 }
 const hora = t => (t || '').replace(/^0(\d)/, '$1');
+// Live mask while typing: adds the colon as soon as the hour is complete (17 -> "17:", 8 -> "8:").
+function mascaraHora(inp, ev){
+  if (ev && ev.inputType && ev.inputType.startsWith('delete')) return; // let backspace remove the colon
+  const d = inp.value.replace(/\D/g, '').slice(0, 4);
+  let h, m;
+  if (!d) { inp.value = ''; return; }
+  if (+d[0] >= 3 || (d[0] === '2' && d.length > 1 && +d[1] > 3)) { h = d[0]; m = d.slice(1, 3); }
+  else if (d.length >= 2) { h = d.slice(0, 2); m = d.slice(2, 4); }
+  else { inp.value = d; return; }  // "1" or "2": could still become 10–23
+  inp.value = `${h}:${m}`;
+}
 // Typed time -> "HH:MM". Accepts 8, 800, 0830, 8:30, 8.30, 8,30, 8'30, 17h30. Returns null if it isn't a valid time.
 function leerHora(str){
   str = String(str || '').trim().toLowerCase().replace(/[.,'´’h ]/g, ':').replace(/:+$/, '');
@@ -304,8 +315,8 @@ function bodyHtml(k, d, wk){
   }
   const tramos = d.tramos.map((t,i) => `
     <div class="tramo" data-i="${i}">
-      <div><label class="f">Entrada</label><input class="time-in" data-f="ini" value="${esc(hora(t.ini))}" inputmode="decimal" placeholder="--:--" autocomplete="off"></div>
-      <div><label class="f">Salida</label><input class="time-in" data-f="fin" value="${esc(hora(t.fin))}" inputmode="decimal" placeholder="--:--" autocomplete="off"></div>
+      <div><label class="f">Entrada</label><input class="time-in" data-f="ini" value="${esc(hora(t.ini))}" inputmode="numeric" placeholder="--:--" autocomplete="off"></div>
+      <div><label class="f">Salida</label><input class="time-in" data-f="fin" value="${esc(hora(t.fin))}" inputmode="numeric" placeholder="--:--" autocomplete="off"></div>
       <button class="btn icon del" data-act="deltramo" aria-label="Quitar obra" title="Quitar">×</button>
       <div class="obra-row">
         <div class="obra-wrap"><label class="f">Obra</label><input data-f="obra" value="${esc(t.obra)}" placeholder="Nombre de la obra" autocapitalize="words" autocomplete="off"></div>
@@ -399,6 +410,7 @@ $('periodo').addEventListener('click', e => {
 });
 $('mes').addEventListener('change', e => { mes = +e.target.value; state.ultimo = {mes, anio}; save(); renderHeader(); renderDays(); });
 $('anio').addEventListener('change', e => { anio = +e.target.value; state.ultimo = {mes, anio}; save(); renderHeader(); renderDays(); });
+['cfgEntrada','cfgSalida'].forEach(id => $(id).addEventListener('input', e => mascaraHora(e.target, e)));
 ['cfgEntrada','cfgSalida'].forEach(id => $(id).addEventListener('change', e => {
   const v = leerHora(e.target.value); if (v) { state.cfg[id === 'cfgEntrada' ? 'entrada' : 'salida'] = v; save(); }
   renderHeader(); renderDays();
@@ -413,7 +425,7 @@ daysEl.addEventListener('input', e => {
   if (f === 'totalManual' || f === 'extraManual') { d[f] = inp.value.trim() ? parseHoras(inp.value) : null; }
   else {
     const tr = inp.closest('.tramo'), i = +tr.dataset.i;
-    if (f === 'ini' || f === 'fin') { const v = leerHora(inp.value); d.tramos[i][f] = v || ''; inp.classList.toggle('bad', !!inp.value.trim() && !v); }
+    if (f === 'ini' || f === 'fin') { mascaraHora(inp, e); const v = leerHora(inp.value); d.tramos[i][f] = v || ''; inp.classList.toggle('bad', !!inp.value.trim() && !v); }
     else d.tramos[i][f] = inp.value;
     if (f === 'obra') showSugg(inp);
   }

@@ -503,11 +503,11 @@ function buildPdf(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({unit:'pt', format:'a4'});
   const {start,end} = periodo();
-  if (logoData) doc.addImage(logoData, 'PNG', 48, 26, 68, 36);
+  if (logoData) doc.addImage(logoData, 'PNG', 36, 26, 68, 36);
   doc.setFont('helvetica','bold'); doc.setFontSize(11);
-  doc.text(`Trabajador: ${(state.nombre||'').toUpperCase()}`, 130, 50);
-  doc.text(`Mes: ${MESES[mes]}`, 130, 66);
-  doc.text(`del  ${start.getDate()} ${MESES[start.getMonth()]}  al ${end.getDate()} ${MESES[end.getMonth()]} ${end.getFullYear()}`, 547, 66, {align:'right'});
+  doc.text(`Trabajador: ${(state.nombre||'').toUpperCase()}`, 118, 50);
+  doc.text(`Mes: ${MESES[mes]}`, 118, 66);
+  doc.text(`del  ${start.getDate()} ${MESES[start.getMonth()]}  al ${end.getDate()} ${MESES[end.getMonth()]} ${end.getFullYear()}`, 559, 66, {align:'right'});
 
   const rows = [], rowDay = [];
   diasDelPeriodo().forEach((dt, n) => {
@@ -516,30 +516,35 @@ function buildPdf(){
   });
   function pdfDia(dt){
     const k = iso(dt), d = hoja().dias[k];
-    if (!d) { rows.push([dt.getDate(),'','','','','','']); return; }
-    if (d.estado) { rows.push([dt.getDate(),'','',d.estado,'','','']); return; }
+    if (!d) { rows.push([dt.getDate(),'','','','','','','']); return; }
+    if (d.estado) { rows.push([dt.getDate(),'','',d.estado,'','','','']); return; }
     const ts = d.tramos.filter(t => t.ini || t.fin || t.obra || t.parte);
-    if (!ts.length) { rows.push([dt.getDate(),'','','','','','']); return; }
+    if (!ts.length) { rows.push([dt.getDate(),'','','','','','','']); return; }
     const r = calc(d);
+    // Tell the office why a day has more hours than usual.
+    const obs = d.sinAlmuerzo && d.sinComida ? 'Sin almorzar ni comer' : d.sinAlmuerzo ? 'Sin almorzar' : d.sinComida ? 'Sin comer' : '';
+    const manual = d.totalManual != null || d.extraManual != null ? 'Corregido a mano' : '';
+    const nota = [obs, manual].filter(Boolean).join('. ');
     ts.forEach((t,i) => {
       const last = i === ts.length-1;
-      rows.push([i ? '' : dt.getDate(), hora(t.ini), hora(t.fin), t.obra, t.parte, last ? fmt(r.total) : '', last && r.extra ? fmt(r.extra) : '']);
+      rows.push([i ? '' : dt.getDate(), hora(t.ini), hora(t.fin), t.obra, t.parte, last ? fmt(r.total) : '', last && r.extra ? fmt(r.extra) : '', last ? nota : '']);
     });
   }
   const tot = totales();
   doc.autoTable({
-    startY: 82, margin:{left:48, right:48},
-    head: [['Dia','Hora inicio','Hora final','Obra','Parte número','Total horas','Horas extra']],
+    startY: 82, margin:{left:36, right:36},
+    head: [['Dia','Hora inicio','Hora final','Obra','Parte número','Total horas','Horas extra','Observaciones']],
     body: rows,
-    foot: [['','','','TOTAL','', fmt(tot.t)||'0', fmt(tot.e)||'0']],
+    foot: [['','','','TOTAL','', fmt(tot.t)||'0', fmt(tot.e)||'0', '']],
     theme: 'grid',
     // Rectec Vallès colours: dark grey header, white / light lime bands per day, lime total row.
     styles: { font:'helvetica', fontSize:10, cellPadding:3.5, lineColor:[150,152,146], lineWidth:.5, textColor:[60,60,59], fillColor:[255,255,255], minCellHeight:17 },
     headStyles: { fillColor:[60,60,59], textColor:[255,255,255], fontStyle:'bold', halign:'center', valign:'middle', minCellHeight:28, lineColor:[60,60,59] },
     footStyles: { fillColor:[195,212,0], textColor:[46,46,45], fontStyle:'bold', halign:'center', lineColor:[150,152,146] },
     columnStyles: {
-      0:{halign:'center', fontStyle:'bold', cellWidth:36}, 1:{halign:'center', cellWidth:56}, 2:{halign:'center', cellWidth:56},
-      3:{cellWidth:'auto'}, 4:{halign:'center', cellWidth:68}, 5:{halign:'center', cellWidth:60}, 6:{halign:'center', cellWidth:56}
+      0:{halign:'center', fontStyle:'bold', cellWidth:28}, 1:{halign:'center', cellWidth:44}, 2:{halign:'center', cellWidth:44},
+      3:{cellWidth:'auto'}, 4:{halign:'center', cellWidth:46}, 5:{halign:'center', cellWidth:44}, 6:{halign:'center', cellWidth:42},
+      7:{cellWidth:88, fontSize:8.5, fontStyle:'italic'}
     },
     didParseCell: data => {
       if (data.section==='foot' && data.column.index===3) data.cell.styles.halign='right';

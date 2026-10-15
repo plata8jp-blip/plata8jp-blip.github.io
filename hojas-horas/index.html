@@ -508,8 +508,12 @@ function buildPdf(){
   doc.text(`Mes: ${MESES[mes]}`, 130, 66);
   doc.text(`del  ${start.getDate()} ${MESES[start.getMonth()]}  al ${end.getDate()} ${MESES[end.getMonth()]} ${end.getFullYear()}`, 547, 66, {align:'right'});
 
-  const rows = [];
-  diasDelPeriodo().forEach(dt => {
+  const rows = [], rowDay = [];
+  diasDelPeriodo().forEach((dt, n) => {
+    pdfDia(dt);
+    while (rowDay.length < rows.length) rowDay.push(n);
+  });
+  function pdfDia(dt){
     const k = iso(dt), d = hoja().dias[k];
     if (!d) { rows.push([dt.getDate(),'','','','','','']); return; }
     if (d.estado) { rows.push([dt.getDate(),'','',d.estado,'','','']); return; }
@@ -520,7 +524,7 @@ function buildPdf(){
       const last = i === ts.length-1;
       rows.push([i ? '' : dt.getDate(), hora(t.ini), hora(t.fin), t.obra, t.parte, last ? fmt(r.total) : '', last && r.extra ? fmt(r.extra) : '']);
     });
-  });
+  }
   const tot = totales();
   doc.autoTable({
     startY: 82, margin:{left:48, right:48},
@@ -528,15 +532,21 @@ function buildPdf(){
     body: rows,
     foot: [['','','','TOTAL','', fmt(tot.t)||'0', fmt(tot.e)||'0']],
     theme: 'grid',
-    styles: { font:'helvetica', fontSize:10, cellPadding:3.5, lineColor:[0,0,0], lineWidth:.6, textColor:[0,0,0], fillColor:[253,242,208], minCellHeight:17 },
-    alternateRowStyles: { fillColor:[251,230,170] },
-    headStyles: { fillColor:[217,217,217], fontStyle:'bold', halign:'center', valign:'bottom', minCellHeight:28, lineWidth:.9 },
-    footStyles: { fillColor:[217,217,217], fontStyle:'bold', halign:'center' },
+    // Rectec Vallès colours: dark grey header, white / light lime bands per day, lime total row.
+    styles: { font:'helvetica', fontSize:10, cellPadding:3.5, lineColor:[150,152,146], lineWidth:.5, textColor:[60,60,59], fillColor:[255,255,255], minCellHeight:17 },
+    headStyles: { fillColor:[60,60,59], textColor:[255,255,255], fontStyle:'bold', halign:'center', valign:'middle', minCellHeight:28, lineColor:[60,60,59] },
+    footStyles: { fillColor:[195,212,0], textColor:[46,46,45], fontStyle:'bold', halign:'center', lineColor:[150,152,146] },
     columnStyles: {
       0:{halign:'center', fontStyle:'bold', cellWidth:36}, 1:{halign:'center', cellWidth:56}, 2:{halign:'center', cellWidth:56},
       3:{cellWidth:'auto'}, 4:{halign:'center', cellWidth:68}, 5:{halign:'center', cellWidth:60}, 6:{halign:'center', cellWidth:56}
     },
-    didParseCell: data => { if (data.section==='foot' && data.column.index===3) data.cell.styles.halign='right'; }
+    didParseCell: data => {
+      if (data.section==='foot' && data.column.index===3) data.cell.styles.halign='right';
+      if (data.section==='body') {
+        if (rowDay[data.row.index] % 2) data.cell.styles.fillColor = [243,247,214];
+        if (data.column.index===6 && data.cell.raw) { data.cell.styles.fontStyle='bold'; data.cell.styles.textColor=[90,100,0]; }
+      }
+    }
   });
   return doc;
 }

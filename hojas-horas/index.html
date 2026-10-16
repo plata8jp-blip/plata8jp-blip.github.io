@@ -400,6 +400,7 @@ function bodyHtml(k, d, wk){
     <div class="chips">
       <button class="chip toggle ${d.sinAlmuerzo?'on':''}" data-act="sinAlmuerzo" aria-pressed="${!!d.sinAlmuerzo}">${d.sinAlmuerzo?'✓ ':''}No he almorzado</button>
       <button class="chip toggle ${d.sinComida?'on':''}" data-act="sinComida" aria-pressed="${!!d.sinComida}">${d.sinComida?'✓ ':''}No he comido</button>
+      <button class="chip toggle ${d.festivoTrabajado?'on':''}" data-act="festivoTrabajado" aria-pressed="${!!d.festivoTrabajado}">${d.festivoTrabajado?'✓ ':''}Festivo trabajado</button>
     </div>
     <div class="chips">
       <button class="chip" data-act="normal">Horario normal (${hora(state.cfg.entrada)} a ${hora(state.cfg.salida)})</button>
@@ -566,7 +567,7 @@ daysEl.addEventListener('click', e => {
   } else if (act === 'deltramo') {
     const i = +b.closest('.tramo').dataset.i; d.tramos.splice(i,1);
     if (!d.tramos.length) d.tramos.push({ini:'',fin:'',obra:'',parte:''});
-  } else if (act === 'sinAlmuerzo' || act === 'sinComida') {
+  } else if (act === 'sinAlmuerzo' || act === 'sinComida' || act === 'festivoTrabajado') {
     d[act] = !d[act];
   } else if (act === 'normal') {
     const t0 = d.tramos[0];
@@ -636,7 +637,7 @@ function buildPdf(){
     // Tell the office why a day has more hours than usual.
     const obs = d.sinAlmuerzo && d.sinComida ? 'Sin almorzar ni comer' : d.sinAlmuerzo ? 'Sin almorzar' : d.sinComida ? 'Sin comer' : '';
     const manual = d.totalManual != null || d.extraManual != null ? 'Corregido a mano' : '';
-    const nota = [finde, obs, manual].filter(Boolean).join('. ');
+    const nota = [finde, d.festivoTrabajado ? 'Festivo trabajado' : '', obs, manual].filter(Boolean).join('. ');
     ts.forEach((t,i) => {
       const last = i === ts.length-1;
       rows.push([i ? '' : dt.getDate(), hora(t.ini), hora(t.fin), obraTexto(t), t.parte, last ? fmt(r.total) : '', last && r.extra ? fmt(r.extra) : '', last ? nota : '']);

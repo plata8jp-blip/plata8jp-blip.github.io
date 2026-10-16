@@ -9,7 +9,7 @@
     (function () {
       var p = location.pathname.toLowerCase();
       var to = null;
-      if (p.indexOf('hora') !== -1 || p.indexOf('rectec') !== -1) to = '/hojas-horas/';
+      if (p.indexOf('hora') !== -1 || p.indexOf('rectec') !== -1) { location.replace('https://hoja-horas-rectec.web.app/'); return; }
       else if (p.indexOf('clipa') !== -1) to = '/clipa/' + p.replace(/^\/clipa\/?/, '');
       else if (p.indexOf('parla') !== -1) to = '/parla/';
       else if (p !== location.pathname) to = p;
@@ -24,6 +24,6 @@
 </head>
 <body>
   <h1>Página no encontrada</h1>
-  <p>¿Buscabas la <a href="/hojas-horas/">Hoja de horas</a>?</p>
+  <p>¿Buscabas la <a href="https://hoja-horas-rectec.web.app/">Hoja de horas</a>?</p>
 </body>
 </html>

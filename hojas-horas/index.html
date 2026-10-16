@@ -137,17 +137,6 @@ details summary{cursor:pointer;color:var(--muted);font-size:14px;min-height:36px
       <div><label class="f" for="hasta">Hasta</label><input id="hasta" type="date"></div>
     </div>
     <div class="period" id="periodo"></div>
-    <details style="margin-top:6px">
-      <summary>Ajustes de cálculo</summary>
-      <div class="grid2" style="margin-top:8px">
-        <div><label class="f" for="cfgDesayuno">Almuerzo (min)</label><input id="cfgDesayuno" type="number" min="0" inputmode="numeric"></div>
-        <div><label class="f" for="cfgEntrada">Horario: entrada</label><input class="time-in" id="cfgEntrada" inputmode="numeric" autocomplete="off"></div>
-        <div><label class="f" for="cfgSalida">Horario: salida</label><input class="time-in" id="cfgSalida" inputmode="numeric" autocomplete="off"></div>
-        <div><label class="f" for="cfgComida">Comida (min)</label><input id="cfgComida" type="number" min="0" inputmode="numeric"></div>
-        <div><label class="f">Jornada normal</label><input id="cfgJornada" disabled></div>
-      </div>
-      <p class="small">Total del día = horas entre entrada y salida − almuerzo − comida. Si un día no almuerzas o no comes, márcalo en ese día y no se resta. Si apuntas la parada de la comida (por ejemplo, de 14:00 a 15:00), esa hora ya no cuenta y no se resta otra vez. Lo que pase de la jornada normal son horas extra.</p>
-    </details>
   </section>
 
   <div id="days"></div>
@@ -189,7 +178,8 @@ function load(){ try { return JSON.parse(localStorage.getItem(KEY)) || {}; } cat
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){} }
 const CFG = {v:2, inicio:23, entrada:'08:00', salida:'17:30', desayuno:30, comida:60};
 const state = Object.assign({ nombre:'', hojas:{}, obras:[] }, load());
-state.cfg = state.cfg && state.cfg.v === CFG.v ? Object.assign({}, CFG, state.cfg) : Object.assign({}, CFG, {inicio: (state.cfg && state.cfg.inicio) || 23});
+// The company schedule is fixed for everyone; settings a phone saved in older versions are ignored.
+state.cfg = Object.assign({}, CFG);
 // Normal working day = scheduled span minus both breaks (8:00–17:30 − 0:30 − 1:00 = 8 h).
 const jornada = () => Math.max(0, toMin(state.cfg.salida) - toMin(state.cfg.entrada) - state.cfg.desayuno - state.cfg.comida);
 
@@ -352,11 +342,6 @@ function renderHeader(){
   $('mes').innerHTML = MESES.map((m,i)=>`<option value="${i}" ${i===mes?'selected':''}>${m}</option>`).join('');
   const ys = []; for (let y = today.getFullYear()-1; y <= today.getFullYear()+1; y++) ys.push(y);
   $('anio').innerHTML = ys.map(y=>`<option ${y===anio?'selected':''}>${y}</option>`).join('');
-  $('cfgJornada').value = (fmt(jornada()) || '0') + ' h';
-  $('cfgEntrada').value = hora(state.cfg.entrada);
-  $('cfgSalida').value = hora(state.cfg.salida);
-  $('cfgDesayuno').value = state.cfg.desayuno;
-  $('cfgComida').value = state.cfg.comida;
   const {start,end} = periodo();
   $('desde').value = iso(start); $('hasta').value = iso(end);
   const h = state.hojas[sheetKey()] || {};
@@ -524,13 +509,6 @@ $('periodo').addEventListener('click', e => {
 });
 $('mes').addEventListener('change', e => { mes = +e.target.value; state.ultimo = {mes, anio}; save(); renderHeader(); renderDays(); });
 $('anio').addEventListener('change', e => { anio = +e.target.value; state.ultimo = {mes, anio}; save(); renderHeader(); renderDays(); });
-['cfgEntrada','cfgSalida'].forEach(id => $(id).addEventListener('input', e => mascaraHora(e.target, e)));
-['cfgEntrada','cfgSalida'].forEach(id => $(id).addEventListener('change', e => {
-  const v = leerHora(e.target.value); if (v) { state.cfg[id === 'cfgEntrada' ? 'entrada' : 'salida'] = v; save(); }
-  renderHeader(); renderDays();
-}));
-$('cfgDesayuno').addEventListener('change', e => { state.cfg.desayuno = Math.max(0, +e.target.value||0); save(); renderHeader(); renderDays(); });
-$('cfgComida').addEventListener('change', e => { state.cfg.comida = Math.max(0, +e.target.value||0); save(); renderHeader(); renderDays(); });
 
 const daysEl = $('days');
 daysEl.addEventListener('input', e => {

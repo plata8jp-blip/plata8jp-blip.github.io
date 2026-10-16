@@ -299,7 +299,7 @@ function calc(d, k){
   else if (d.totalManual != null) extra = Math.max(0, total - normal);
   if (d.totalManual != null || d.extraManual != null) desglose = ['corregido a mano'];
   const todoExtra = !normal && total ? (d.festivoTrabajado ? 'festivo: todo extra' : 'fin de semana: todo extra') : '';
-  return {total, extra: extra || null, desglose, todoExtra};
+  return {total, extra: extra || null, desglose, todoExtra, solapa: !!(desglose && desglose[0] && desglose[0].startsWith('⚠'))};
 }
 
 // ---------- lista de obras de la oficina (Firebase) ----------
@@ -469,7 +469,8 @@ function updateBadges(k){
   if (d && d.estado) { el.innerHTML = `<span class="badge status">${d.estado}</span>`; return; }
   const r = calc(d, k);
   const ds = el.closest('.day').querySelector('[data-desglose]');
-  if (ds) ds.textContent = r.desglose ? r.desglose.join(' ') + (r.total != null && !d.totalManual ? ` = ${fmt(r.total)} h` : '') + (r.todoExtra ? ` · ${r.todoExtra}` : '') : '';
+  // Only the overlap warning is shown under the day; the totals live in the badges.
+  if (ds) { ds.textContent = r.solapa ? '⚠ Hay líneas con horas que se pisan; se cuentan una sola vez.' : ''; ds.hidden = !r.solapa; }
   el.innerHTML = (r.total!=null ? `<span class="badge">${fmt(r.total)} h</span>` : '') + (r.extra ? `<span class="badge extra">+${fmt(r.extra)}</span>` : '');
 }
 // Hours per site for the PDF summary. A day's total (breaks already taken off) is shared

@@ -467,6 +467,29 @@ function updateBadges(k){
   if (ds) ds.textContent = r.desglose ? r.desglose.join(' ') + (r.total != null && !d.totalManual ? ` = ${fmt(r.total)} h` : '') : '';
   el.innerHTML = (r.total!=null ? `<span class="badge">${fmt(r.total)} h</span>` : '') + (r.extra ? `<span class="badge extra">+${fmt(r.extra)}</span>` : '');
 }
+// Hours per site for the PDF summary. A day's total (breaks already taken off) is shared
+// between its lines in proportion to each line's hours, to the minute, so it adds up to the sheet total.
+function resumenObras(){
+  const por = new Map();
+  diasDelPeriodo().forEach(dt => {
+    const d = hoja().dias[iso(dt)]; if (!d || d.estado) return;
+    const r = calc(d); if (!r.total) return;
+    const ls = d.tramos.map(t => ({t, m: (toMin(t.fin) ?? 0) - (toMin(t.ini) ?? 0)})).filter(x => x.m > 0 && (x.t.codigo || x.t.obra));
+    if (!ls.length) return;
+    const suma = ls.reduce((a, x) => a + x.m, 0);
+    let reparto = ls.map(x => Math.floor(r.total * x.m / suma));
+    let resto = r.total - reparto.reduce((a, b) => a + b, 0);
+    ls.map((x, i) => [i, (r.total * x.m / suma) % 1]).sort((a, b) => b[1] - a[1]).forEach(([i]) => { if (resto-- > 0) reparto[i]++; });
+    const vistos = new Set();
+    ls.forEach((x, i) => {
+      const key = x.t.codigo ? 'c:' + x.t.codigo : 'o:' + norm((x.t.obra || '').trim());
+      if (!por.has(key)) por.set(key, {codigo: x.t.codigo || '', nombre: x.t.codigo ? x.t.obra : (x.t.otra || listaPara(sheetKey()) ? 'Otra: ' : '') + (x.t.obra || '').trim(), min: 0, dias: 0});
+      const o = por.get(key); o.min += reparto[i];
+      if (!vistos.has(key)) { o.dias++; vistos.add(key); }
+    });
+  });
+  return [...por.values()].sort((a, b) => b.min - a.min);
+}
 function totales(){
   let t = 0, e = 0, n = 0;
   diasDelPeriodo().forEach(dt => { const r = calc(hoja().dias[iso(dt)]); if (r.total) { t += r.total; n++; } if (r.extra) e += r.extra; });
@@ -641,6 +664,32 @@ function buildPdf(){
       }
     }
   });
+
+  const res = resumenObras();
+  if (res.length) {
+    let y = doc.lastAutoTable.finalY + 26;
+    if (y > 760) { doc.addPage(); y = 50; }
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(60,60,59);
+    doc.text('Resumen de horas por obra', 36, y);
+    doc.autoTable({
+      startY: y + 8, margin:{left:36, right:36},
+      head: [['Código','Obra','Días','Horas']],
+      body: res.map(o => [o.codigo, o.nombre, o.dias, fmt(o.min)]),
+      foot: [['','TOTAL', '', fmt(res.reduce((a, o) => a + o.min, 0))]],
+      theme: 'grid',
+      styles: { font:'helvetica', fontSize:10, cellPadding:3.5, lineColor:[150,152,146], lineWidth:.5, textColor:[60,60,59], fillColor:[255,255,255] },
+      headStyles: { fillColor:[60,60,59], textColor:[255,255,255], fontStyle:'bold', halign:'center' },
+      footStyles: { fillColor:[195,212,0], textColor:[46,46,45], fontStyle:'bold', halign:'center' },
+      alternateRowStyles: { fillColor:[243,247,214] },
+      columnStyles: { 0:{cellWidth:70, fontStyle:'bold'}, 1:{cellWidth:'auto'}, 2:{halign:'center', cellWidth:44}, 3:{halign:'center', cellWidth:60} },
+      didParseCell: data => { if (data.section==='foot' && data.column.index===1) data.cell.styles.halign='right'; }
+    });
+    let ny = doc.lastAutoTable.finalY + 14;
+    if (ny > 815) { doc.addPage(); ny = 50; }
+    doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(110,112,107);
+    doc.text('Los días con varias obras reparten el almuerzo y la comida entre ellas según las horas de cada una.', 36, ny);
+    doc.setTextColor(0,0,0);
+  }
   return doc;
 }
 function check(){

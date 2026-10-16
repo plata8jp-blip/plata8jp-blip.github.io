@@ -74,6 +74,19 @@ button:disabled{opacity:.45}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .chip{background:var(--chip);color:var(--ink);font-size:14px;min-height:36px;padding:0 12px;border-radius:999px}
 .obra-wrap{position:relative}
+.obra-wrap select{margin-bottom:0}
+.obra-otra{margin-top:8px}
+.admin{position:fixed;inset:0;z-index:30;background:var(--bg);overflow-y:auto;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+.admin[hidden]{display:none}
+.admin-top{position:sticky;top:0;z-index:2;background:#fff;color:#3c3c3b;border-bottom:4px solid var(--accent);display:flex;align-items:center;justify-content:space-between;
+  padding:calc(10px + env(safe-area-inset-top)) 16px 10px}
+.admin-top h2{margin:0;font-size:17px}
+.admin-top .btn.icon{color:#3c3c3b}
+.arow{display:grid;grid-template-columns:96px minmax(0,1fr) 44px;gap:8px;margin-bottom:8px}
+.aerr{color:var(--danger);font-size:14px;margin:8px 0 0}
+.aok{color:var(--ok);font-size:14px;margin:8px 0 0}
+.stack{display:grid;gap:8px;margin-top:12px}
+.link-oficina{display:block;margin:4px auto 16px}
 .sugg{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:4;background:var(--card);border:1px solid var(--line);border-radius:10px;
   box-shadow:0 8px 24px rgba(0,0,0,.15);max-height:240px;overflow-y:auto;padding:4px 0}
 .sugg button{display:block;width:100%;text-align:left;background:none;color:var(--ink);border-radius:0;min-height:44px;padding:0 12px;
@@ -146,8 +159,14 @@ details summary{cursor:pointer;color:var(--muted);font-size:14px;min-height:36px
       <button class="btn" id="addDayBtn">Añadir</button>
     </div>
   </section>
-  <p class="small" style="text-align:center">Los datos se guardan solos en este móvil.</p>
+  <p class="small" style="text-align:center">Tus horas se guardan solo en este móvil. La lista de obras la prepara la oficina.</p>
+  <button class="link link-oficina" id="abrirAdmin">Acceso oficina</button>
 </main>
+
+<div class="admin" id="admin" hidden>
+  <div class="admin-top"><h2>Acceso oficina · Lista de obras</h2><button class="btn icon" id="cerrarAdmin" aria-label="Cerrar">×</button></div>
+  <main id="adminBody"></main>
+</div>
 
 
 <div class="bar">
@@ -279,6 +298,50 @@ function calc(d){
   return {total, extra: extra || null, desglose};
 }
 
+// ---------- lista de obras de la oficina (Firebase) ----------
+// The office keeps one list of sites (código + nombre) per month in Firestore. Anyone can read it;
+// only the office account can write it (enforced by the Firestore security rules).
+const FB = { key: 'AIzaSyAELlyOPAiXhRXE3-XkQbcbt2derwshK7A', project: 'hoja-horas-rectec' };
+const ADMIN_EMAIL = 'oficina@rectecvalles.com';
+const FS = `https://firestore.googleapis.com/v1/projects/${FB.project}/databases/(default)/documents`;
+state.listas = state.listas || {};
+
+// The list for a month, or the latest earlier month's list until the office creates one.
+function listaPara(key){
+  if (state.listas[key]) return state.listas[key];
+  const prev = Object.keys(state.listas).filter(k => k < key).sort().pop();
+  return prev ? state.listas[prev] : null;
+}
+const fsStr = v => ({stringValue: String(v)});
+function leerListas(json){
+  const out = {};
+  (json.documents || []).forEach(doc => {
+    const key = doc.name.split('/').pop();
+    const vals = (((doc.fields || {}).obras || {}).arrayValue || {}).values || [];
+    out[key] = vals.map(v => { const f = (v.mapValue || {}).fields || {}; return { codigo: (f.codigo||{}).stringValue || '', nombre: (f.nombre||{}).stringValue || '' }; })
+      .filter(o => o.codigo || o.nombre);
+  });
+  return out;
+}
+async function cargarListas(){
+  try {
+    const r = await fetch(`${FS}/listas?pageSize=300`, {cache: 'no-store'});
+    if (!r.ok) return;
+    const nuevas = leerListas(await r.json());
+    if (JSON.stringify(nuevas) === JSON.stringify(state.listas)) return;
+    state.listas = nuevas; save();
+    // Don't redraw under someone's fingers; the next redraw picks it up.
+    const a = document.activeElement;
+    if (!a || !a.closest || !a.closest('#days')) renderDays();
+  } catch(e) {}
+}
+// Text shown for a line's site in the PDF.
+function obraTexto(t){
+  if (t.codigo) return `${t.codigo} · ${t.obra || ''}`;
+  if (t.otra) return t.obra ? `Otra: ${t.obra}` : '';
+  return t.obra || '';
+}
+
 // ---------- render ----------
 function renderHeader(){
   $('nombre').value = state.nombre;
@@ -319,13 +382,14 @@ function bodyHtml(k, d, wk){
   if (d.estado) {
     return `<p class="empty-note">Marcado como <b>${d.estado}</b>.</p><div class="chips">${chips}</div>`;
   }
+  const lista = listaPara(sheetKey());
   const tramos = d.tramos.map((t,i) => `
     <div class="tramo" data-i="${i}">
       <div><label class="f">Entrada</label><input class="time-in" data-f="ini" value="${esc(hora(t.ini))}" inputmode="numeric" placeholder="--:--" autocomplete="off"></div>
       <div><label class="f">Salida</label><input class="time-in" data-f="fin" value="${esc(hora(t.fin))}" inputmode="numeric" placeholder="--:--" autocomplete="off"></div>
       <button class="btn icon del" data-act="deltramo" aria-label="Quitar obra" title="Quitar">×</button>
       <div class="obra-row">
-        <div class="obra-wrap"><label class="f">Obra</label><input data-f="obra" value="${esc(t.obra)}" placeholder="Nombre de la obra" autocapitalize="words" autocomplete="off"></div>
+        <div class="obra-wrap"><label class="f">Obra</label>${campoObra(t, lista)}</div>
         <div><label class="f">Parte nº</label><input data-f="parte" value="${esc(t.parte)}" inputmode="numeric"></div>
       </div>
     </div>`).join('');
@@ -348,6 +412,21 @@ function bodyHtml(k, d, wk){
       <div><label class="f">Total horas</label><input data-f="totalManual" inputmode="decimal" placeholder="${fmt(calcAuto(d).total)}" value="${d.totalManual!=null?fmt(d.totalManual):''}"></div>
       <div><label class="f">Horas extra</label><input data-f="extraManual" inputmode="decimal" placeholder="${fmt(calcAuto(d).extra)||'0'}" value="${d.extraManual!=null?fmt(d.extraManual):''}"></div>
     </div>`;
+}
+// With an office list the site is chosen from a dropdown ("Otra obra" opens a text box);
+// without one it's free text with suggestions from earlier days.
+function campoObra(t, lista){
+  const libre = v => `<input data-f="obra" value="${esc(v)}" placeholder="Nombre de la obra" autocapitalize="words" autocomplete="off">`;
+  if (!lista || !lista.length) return libre(t.obra);
+  const otra = t.otra || (!t.codigo && !!t.obra);
+  const opciones = lista.map(o => `<option value="${esc(o.codigo)}" ${t.codigo === o.codigo ? 'selected' : ''}>${esc(o.codigo)} · ${esc(o.nombre)}</option>`);
+  // A site the office has since removed stays selectable on the days that used it.
+  if (t.codigo && !lista.some(o => o.codigo === t.codigo)) opciones.unshift(`<option value="${esc(t.codigo)}" selected>${esc(t.codigo)} · ${esc(t.obra)}</option>`);
+  return `<select data-f="obraSel">
+      <option value="" ${!t.codigo && !otra ? 'selected' : ''}>Elige la obra…</option>
+      ${opciones.join('')}
+      <option value="__otra" ${otra ? 'selected' : ''}>Otra obra (escribirla)</option>
+    </select>${otra ? `<div class="obra-otra">${libre(t.obra).replace('placeholder="Nombre de la obra"', 'placeholder="Escribe la obra"')}</div>` : ''}`;
 }
 // Every site written before, most recently used first: the days just before this one count most.
 function obrasRecientes(k){
@@ -426,7 +505,7 @@ $('cfgComida').addEventListener('change', e => { state.cfg.comida = Math.max(0, 
 
 const daysEl = $('days');
 daysEl.addEventListener('input', e => {
-  const inp = e.target, f = inp.dataset.f; if (!f) return;
+  const inp = e.target, f = inp.dataset.f; if (!f || f === 'obraSel') return;
   const k = inp.closest('.day').dataset.k, d = dia(k);
   if (f === 'totalManual' || f === 'extraManual') { d[f] = inp.value.trim() ? parseHoras(inp.value) : null; }
   else {
@@ -439,20 +518,28 @@ daysEl.addEventListener('input', e => {
 });
 daysEl.addEventListener('change', e => {
   const f = e.target.dataset.f;
+  if (f === 'obraSel') {
+    const k = e.target.closest('.day').dataset.k, d = dia(k), i = +e.target.closest('.tramo').dataset.i, t = d.tramos[i], v = e.target.value;
+    if (v === '__otra') { if (t.codigo) t.obra = ''; t.codigo = ''; t.otra = true; }
+    else if (v) { const o = (listaPara(sheetKey()) || []).find(x => x.codigo === v); t.codigo = v; t.obra = o ? o.nombre : t.obra; t.otra = false; }
+    else { t.codigo = ''; t.obra = ''; t.otra = false; }
+    save(); rerenderDay(k);
+    if (v === '__otra') document.querySelector(`.day[data-k="${k}"] .tramo[data-i="${i}"] .obra-otra input`)?.focus();
+    return;
+  }
   if (f === 'ini' || f === 'fin') {
     const v = leerHora(e.target.value);
     if (v) { e.target.value = hora(v); e.target.classList.remove('bad'); }
     else if (e.target.value.trim()) toast('Hora no válida. Escribe por ejemplo 8:00 o 1730');
   }
-  if (e.target.dataset.f === 'obra') { const v = e.target.value.trim(); if (v) { state.obras = [v, ...state.obras.filter(o => o !== v)].slice(0,60); save(); renderHeader(); } }
-  // after finishing the first block's exit, suggest nothing; keep simple
+  if (f === 'obra') { const v = e.target.value.trim(); if (v) { state.obras = [v, ...state.obras.filter(o => o !== v)].slice(0,60); save(); renderHeader(); } }
 });
 daysEl.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const k = b.closest('.day').dataset.k, d = dia(k), act = b.dataset.act;
   if (act === 'addtramo') {
     const last = d.tramos[d.tramos.length-1];
-    d.tramos.push({ini: last && last.fin || '', fin:'', obra:'', parte:''});
+    d.tramos.push({ini: last && last.fin || '', fin:'', obra:'', codigo:'', parte:''});
   } else if (act === 'deltramo') {
     const i = +b.closest('.tramo').dataset.i; d.tramos.splice(i,1);
     if (!d.tramos.length) d.tramos.push({ini:'',fin:'',obra:'',parte:''});
@@ -518,7 +605,7 @@ function buildPdf(){
     const k = iso(dt), d = hoja().dias[k];
     if (!d) { rows.push([dt.getDate(),'','','','','','','']); return; }
     if (d.estado) { rows.push([dt.getDate(),'','',d.estado,'','','','']); return; }
-    const ts = d.tramos.filter(t => t.ini || t.fin || t.obra || t.parte);
+    const ts = d.tramos.filter(t => t.ini || t.fin || t.obra || t.codigo || t.parte);
     if (!ts.length) { rows.push([dt.getDate(),'','','','','','','']); return; }
     const r = calc(d);
     // Tell the office why a day has more hours than usual.
@@ -527,7 +614,7 @@ function buildPdf(){
     const nota = [obs, manual].filter(Boolean).join('. ');
     ts.forEach((t,i) => {
       const last = i === ts.length-1;
-      rows.push([i ? '' : dt.getDate(), hora(t.ini), hora(t.fin), t.obra, t.parte, last ? fmt(r.total) : '', last && r.extra ? fmt(r.extra) : '', last ? nota : '']);
+      rows.push([i ? '' : dt.getDate(), hora(t.ini), hora(t.fin), obraTexto(t), t.parte, last ? fmt(r.total) : '', last && r.extra ? fmt(r.extra) : '', last ? nota : '']);
     });
   }
   const tot = totales();
@@ -579,9 +666,189 @@ $('shareBtn').addEventListener('click', async () => {
   }
 });
 
+// ---------- acceso oficina ----------
+const AKEY = 'hojaHoras.oficina';
+let sesion = (() => { try { return JSON.parse(localStorage.getItem(AKEY)) || null; } catch(e){ return null; } })();
+function guardarSesion(){ try { sesion ? localStorage.setItem(AKEY, JSON.stringify(sesion)) : localStorage.removeItem(AKEY); } catch(e){} }
+const ERRORES = {
+  EMAIL_EXISTS: 'Ya hay una contraseña creada para este correo. Pulsa "Entrar".',
+  EMAIL_NOT_FOUND: 'Todavía no hay contraseña para este correo. Pulsa "Primera vez".',
+  INVALID_PASSWORD: 'Contraseña incorrecta.',
+  INVALID_LOGIN_CREDENTIALS: 'Correo o contraseña incorrectos. Si es la primera vez, pulsa "Primera vez".',
+  WEAK_PASSWORD: 'La contraseña tiene que tener al menos 6 caracteres.',
+  TOO_MANY_ATTEMPTS_TRY_LATER: 'Demasiados intentos. Espera unos minutos.',
+  USER_DISABLED: 'Esta cuenta está desactivada.',
+  INVALID_EMAIL: 'El correo no es válido.',
+  MISSING_PASSWORD: 'Escribe la contraseña.'
+};
+const SESION_MALA = ['INVALID_ID_TOKEN', 'TOKEN_EXPIRED', 'USER_NOT_FOUND', 'INVALID_REFRESH_TOKEN'];
+async function auth(path, body){
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:${path}?key=${FB.key}`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const code = ((j.error || {}).message || '').split(' ')[0];
+    const err = new Error(ERRORES[code] || (SESION_MALA.includes(code) ? 'La sesión ha caducado. Entra otra vez.' : 'No se ha podido conectar. Revisa la conexión e inténtalo otra vez.'));
+    err.code = code; throw err;
+  }
+  return j;
+}
+function abrirSesion(j){ sesion = {email: j.email, idToken: j.idToken, refreshToken: j.refreshToken, exp: Date.now() + (+j.expiresIn || 3600)*1000}; guardarSesion(); }
+async function token(forzar){
+  if (!sesion) throw new Error('Tienes que entrar otra vez.');
+  if (!forzar && sesion.exp - 60000 > Date.now()) return sesion.idToken;
+  const r = await fetch(`https://securetoken.googleapis.com/v1/token?key=${FB.key}`, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(sesion.refreshToken)}`});
+  if (!r.ok) { sesion = null; guardarSesion(); throw new Error('La sesión ha caducado. Entra otra vez.'); }
+  const j = await r.json();
+  Object.assign(sesion, {idToken: j.id_token, refreshToken: j.refresh_token, exp: Date.now() + (+j.expires_in || 3600)*1000}); guardarSesion();
+  return sesion.idToken;
+}
+async function verificado(){
+  const j = await auth('lookup', {idToken: await token()});
+  return !!(j.users && j.users[0] && j.users[0].emailVerified);
+}
+
+let adm = {mes, anio, borrador: null, msg: '', err: '', estado: 'cargando'};
+const akey = () => `${adm.anio}-${pad(adm.mes+1)}`;
+function abrirAdmin(){ adm = {mes, anio, borrador: null, msg: '', err: '', estado: 'cargando'}; $('admin').hidden = false; document.body.style.overflow = 'hidden'; prepararAdmin(); }
+function cerrarAdmin(){ $('admin').hidden = true; document.body.style.overflow = ''; renderDays(); }
+async function prepararAdmin(){
+  adm.estado = !sesion ? 'login' : 'cargando'; drawAdmin();
+  if (!sesion) return;
+  try { adm.estado = await verificado() ? 'lista' : 'verificar'; }
+  catch(e) {
+    if (SESION_MALA.includes(e.code)) { sesion = null; guardarSesion(); }
+    adm.estado = sesion ? 'lista' : 'login'; adm.err = e.message;
+  }
+  if (adm.estado === 'lista') { await cargarListas(); cargarBorrador(); }
+  drawAdmin();
+}
+function cargarBorrador(){ adm.borrador = (state.listas[akey()] || []).map(o => ({...o})); }
+function drawAdmin(){
+  const body = $('adminBody'), msgs = `${adm.err ? `<p class="aerr">${esc(adm.err)}</p>` : ''}${adm.msg ? `<p class="aok">${esc(adm.msg)}</p>` : ''}`;
+  if (adm.estado === 'cargando') { body.innerHTML = `<section class="card"><p>Cargando…</p></section>`; return; }
+  if (adm.estado === 'login') {
+    body.innerHTML = `<section class="card">
+      <p class="small" style="margin-top:0">Solo para la oficina. Desde aquí se prepara la lista de obras que verán los trabajadores en la app.</p>
+      <label class="f" for="aEmail">Correo</label><input id="aEmail" type="email" autocomplete="username" value="${esc(ADMIN_EMAIL)}">
+      <label class="f" for="aPass" style="margin-top:10px">Contraseña</label><input id="aPass" type="password" autocomplete="current-password">
+      <div class="stack">
+        <button class="btn primary" data-a="entrar">Entrar</button>
+        <button class="btn" data-a="crear">Primera vez: crear la contraseña</button>
+        <button class="link" data-a="olvido">He olvidado la contraseña</button>
+      </div>${msgs}</section>`;
+    return;
+  }
+  if (adm.estado === 'verificar') {
+    body.innerHTML = `<section class="card">
+      <p style="margin-top:0">Te hemos enviado un correo a <b>${esc(sesion.email)}</b>. Ábrelo y pulsa el enlace para confirmar que es tu correo. Si no lo ves, mira en la carpeta de correo no deseado.</p>
+      <div class="stack">
+        <button class="btn primary" data-a="yaverificado">Ya he pulsado el enlace</button>
+        <button class="btn" data-a="reenviar">Enviar el correo otra vez</button>
+        <button class="link" data-a="salir">Salir</button>
+      </div>${msgs}</section>`;
+    return;
+  }
+  const meses = MESES.map((m,i) => `<option value="${i}" ${i===adm.mes?'selected':''}>${m}</option>`).join('');
+  const ys = []; for (let y = today.getFullYear()-1; y <= today.getFullYear()+1; y++) ys.push(`<option ${y===adm.anio?'selected':''}>${y}</option>`);
+  const propia = !!state.listas[akey()];
+  const heredada = !propia && listaPara(akey());
+  const filas = adm.borrador.map((o,i) => `<div class="arow" data-i="${i}">
+      <input data-c="codigo" value="${esc(o.codigo)}" placeholder="Código" autocapitalize="characters" autocomplete="off" aria-label="Código de la obra">
+      <input data-c="nombre" value="${esc(o.nombre)}" placeholder="Nombre de la obra" autocapitalize="words" autocomplete="off" aria-label="Nombre de la obra">
+      <button class="btn icon del" data-a="quitar" aria-label="Quitar obra">×</button>
+    </div>`).join('');
+  body.innerHTML = `<section class="card">
+      <div class="grid2"><div><label class="f" for="aMes">Mes</label><select id="aMes">${meses}</select></div>
+      <div><label class="f" for="aAnio">Año</label><select id="aAnio">${ys.join('')}</select></div></div>
+      <p class="small">${propia ? `Lista de ${MESES[adm.mes]} ${adm.anio}: ${state.listas[akey()].length} obras guardadas.` :
+        heredada ? `${MESES[adm.mes]} todavía no tiene lista propia: los trabajadores ven la del mes anterior.` : `${MESES[adm.mes]} todavía no tiene lista.`}</p>
+    </section>
+    <section class="card">
+      ${filas || `<p class="small" style="margin-top:0">No hay obras en la lista. Añade la primera o copia la del mes anterior.</p>`}
+      <div class="stack">
+        <button class="btn ghost" data-a="anadir">+ Añadir obra</button>
+        <button class="btn" data-a="copiar">Copiar la lista del mes anterior</button>
+        <button class="btn primary" data-a="guardar">Guardar la lista de ${MESES[adm.mes]}</button>
+      </div>${msgs}
+    </section>
+    <p class="small" style="text-align:center">Has entrado como ${esc(sesion.email)} · <button class="link" data-a="salir" style="min-height:0;padding:0">Salir</button></p>`;
+}
+$('abrirAdmin').addEventListener('click', abrirAdmin);
+$('cerrarAdmin').addEventListener('click', cerrarAdmin);
+$('adminBody').addEventListener('input', e => {
+  const c = e.target.dataset.c; if (!c) return;
+  adm.borrador[+e.target.closest('.arow').dataset.i][c] = e.target.value;
+});
+$('adminBody').addEventListener('change', e => {
+  if (e.target.id === 'aMes' || e.target.id === 'aAnio') {
+    adm[e.target.id === 'aMes' ? 'mes' : 'anio'] = +e.target.value; adm.msg = adm.err = ''; cargarBorrador(); drawAdmin();
+  }
+});
+$('adminBody').addEventListener('click', async e => {
+  const b = e.target.closest('[data-a]'); if (!b) return;
+  const a = b.dataset.a; adm.msg = adm.err = '';
+  const email = () => ($('aEmail') ? $('aEmail').value.trim().toLowerCase() : '');
+  try {
+    if (a === 'entrar' || a === 'crear') {
+      if (email() !== ADMIN_EMAIL) throw new Error('Este acceso es solo para el correo de la oficina.');
+      b.disabled = true;
+      const j = await auth(a === 'entrar' ? 'signInWithPassword' : 'signUp', {email: email(), password: $('aPass').value, returnSecureToken: true});
+      abrirSesion(j);
+      if (a === 'crear') await auth('sendOobCode', {requestType: 'VERIFY_EMAIL', idToken: j.idToken});
+      return prepararAdmin();
+    }
+    if (a === 'olvido') {
+      if (email() !== ADMIN_EMAIL) throw new Error('Este acceso es solo para el correo de la oficina.');
+      await auth('sendOobCode', {requestType: 'PASSWORD_RESET', email: email()});
+      adm.msg = `Te hemos enviado un correo a ${email()} para crear una contraseña nueva.`;
+    }
+    if (a === 'reenviar') { await auth('sendOobCode', {requestType: 'VERIFY_EMAIL', idToken: await token()}); adm.msg = 'Correo enviado otra vez.'; }
+    if (a === 'yaverificado') {
+      await token(true); // new token carries the verified flag the security rules check
+      if (await verificado()) return prepararAdmin();
+      adm.err = 'Todavía no consta como confirmado. Pulsa el enlace del correo y vuelve a intentarlo.';
+    }
+    if (a === 'salir') { sesion = null; guardarSesion(); return prepararAdmin(); }
+    if (a === 'anadir') {
+      adm.borrador.push({codigo:'', nombre:''}); drawAdmin();
+      const rows = $('adminBody').querySelectorAll('.arow'); rows[rows.length-1]?.querySelector('input').focus();
+      return;
+    }
+    if (a === 'quitar') { adm.borrador.splice(+b.closest('.arow').dataset.i, 1); }
+    if (a === 'copiar') {
+      const prev = Object.keys(state.listas).filter(k => k < akey()).sort().pop();
+      if (!prev) throw new Error('No hay ninguna lista de un mes anterior.');
+      if (adm.borrador.some(o => o.codigo || o.nombre) && !confirm('Se cambiará la lista que tienes ahora en pantalla por la del mes anterior. ¿Seguir?')) return;
+      adm.borrador = state.listas[prev].map(o => ({...o}));
+      const [py, pm] = prev.split('-');
+      adm.msg = `Copiada la lista de ${MESES[+pm-1]} ${py}. Revisa los cambios y pulsa Guardar.`;
+    }
+    if (a === 'guardar') {
+      const obras = adm.borrador.map(o => ({codigo: o.codigo.trim(), nombre: o.nombre.trim()})).filter(o => o.codigo || o.nombre);
+      if (obras.some(o => !o.codigo || !o.nombre)) throw new Error('Cada obra necesita código y nombre.');
+      const dup = obras.map(o => o.codigo.toLowerCase()).find((c,i,arr) => arr.indexOf(c) !== i);
+      if (dup) throw new Error(`El código ${dup.toUpperCase()} está repetido.`);
+      b.disabled = true;
+      const r = await fetch(`${FS}/listas/${akey()}`, {method:'PATCH', headers:{'Content-Type':'application/json', Authorization: `Bearer ${await token()}`},
+        body: JSON.stringify({fields: {
+          obras: {arrayValue: obras.length ? {values: obras.map(o => ({mapValue: {fields: {codigo: fsStr(o.codigo), nombre: fsStr(o.nombre)}}}))} : {}},
+          actualizado: {timestampValue: new Date().toISOString()}
+        }})});
+      if (r.status === 401 || r.status === 403) throw new Error('No tienes permiso para guardar. Sal y vuelve a entrar con el correo de la oficina.');
+      if (!r.ok) throw new Error('No se ha podido guardar. Revisa la conexión e inténtalo otra vez.');
+      state.listas[akey()] = obras; save(); adm.borrador = obras.map(o => ({...o}));
+      adm.msg = `Guardada la lista de ${MESES[adm.mes]} ${adm.anio} (${obras.length} obras). Los trabajadores la verán al abrir la app.`;
+    }
+  } catch(err) { adm.err = err.message; }
+  drawAdmin();
+});
+
 let tt; function toast(msg){ const el = $('toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(tt); tt = setTimeout(()=>el.classList.remove('show'), 2600); }
 
 renderHeader(); renderDays();
+cargarListas();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) cargarListas(); });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   // When a new version takes over, reload once so the installed app shows it straight away.
   const habia = !!navigator.serviceWorker.controller;

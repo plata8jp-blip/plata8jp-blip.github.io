@@ -369,7 +369,9 @@ function renderDays(){
 function bodyHtml(k, d, wk){
   const chips = ESTADOS.map(s => `<button class="chip ${d.estado===s?'on':''}" data-act="estado" data-v="${s}">${s}</button>`).join('');
   if (d.estado) {
-    return `<p class="empty-note">Marcado como <b>${d.estado}</b>.</p><div class="chips">${chips}</div>`;
+    const motivo = d.estado === 'Permiso'
+      ? `<label class="f" for="mot-${k}">Motivo del permiso</label><input id="mot-${k}" data-f="motivo" value="${esc(d.motivo)}" placeholder="Por ejemplo: médico, gestiones…" autocomplete="off">` : '';
+    return `<p class="empty-note">Marcado como <b>${d.estado}</b>.</p>${motivo}<div class="chips">${chips}</div>`;
   }
   const lista = listaPara(sheetKey());
   const tramos = d.tramos.map((t,i) => `
@@ -514,7 +516,8 @@ const daysEl = $('days');
 daysEl.addEventListener('input', e => {
   const inp = e.target, f = inp.dataset.f; if (!f || f === 'obraSel') return;
   const k = inp.closest('.day').dataset.k, d = dia(k);
-  if (f === 'totalManual' || f === 'extraManual') { d[f] = inp.value.trim() ? parseHoras(inp.value) : null; }
+  if (f === 'motivo') { d.motivo = inp.value; }
+  else if (f === 'totalManual' || f === 'extraManual') { d[f] = inp.value.trim() ? parseHoras(inp.value) : null; }
   else {
     const tr = inp.closest('.tramo'), i = +tr.dataset.i;
     if (f === 'ini' || f === 'fin') { mascaraHora(inp, e); const v = leerHora(inp.value); d.tramos[i][f] = v || ''; inp.classList.toggle('bad', !!inp.value.trim() && !v); }
@@ -557,6 +560,7 @@ daysEl.addEventListener('click', e => {
     d.tramos[0] = Object.assign({}, t0, {ini: state.cfg.entrada, fin: state.cfg.salida});
   } else if (act === 'estado') {
     d.estado = d.estado === b.dataset.v ? null : b.dataset.v;
+    if (d.estado === 'Permiso') { save(); rerenderDay(k); $(`mot-${k}`)?.focus(); return; }
   } else if (act === 'copiar') {
     const prev = anterior(k);
     if (!prev) { toast('No hay ningún día anterior con datos'); return; }
@@ -613,7 +617,10 @@ function buildPdf(){
     // Weekend days are only on the sheet when someone added them, so the office should see it.
     const finde = dt.getDay() === 6 ? 'Sábado' : dt.getDay() === 0 ? 'Domingo' : '';
     if (!d) { rows.push([dt.getDate(),'','','','','','',finde]); return; }
-    if (d.estado) { rows.push([dt.getDate(),'','',d.estado,'','','',finde]); return; }
+    if (d.estado) {
+      const motivo = d.estado === 'Permiso' && (d.motivo || '').trim() ? `Motivo: ${d.motivo.trim()}` : '';
+      rows.push([dt.getDate(),'','',d.estado,'','','',[finde, motivo].filter(Boolean).join('. ')]); return;
+    }
     const ts = d.tramos.filter(t => t.ini || t.fin || t.obra || t.codigo || t.parte);
     if (!ts.length) { rows.push([dt.getDate(),'','','','','','',finde]); return; }
     const r = calc(d, k);

@@ -626,15 +626,17 @@ function buildPdf(){
   });
   function pdfDia(dt){
     const k = iso(dt), d = hoja().dias[k];
-    if (!d) { rows.push([dt.getDate(),'','','','','','','']); return; }
-    if (d.estado) { rows.push([dt.getDate(),'','',d.estado,'','','','']); return; }
+    // Weekend days are only on the sheet when someone added them, so the office should see it.
+    const finde = dt.getDay() === 6 ? 'Sábado' : dt.getDay() === 0 ? 'Domingo' : '';
+    if (!d) { rows.push([dt.getDate(),'','','','','','',finde]); return; }
+    if (d.estado) { rows.push([dt.getDate(),'','',d.estado,'','','',finde]); return; }
     const ts = d.tramos.filter(t => t.ini || t.fin || t.obra || t.codigo || t.parte);
-    if (!ts.length) { rows.push([dt.getDate(),'','','','','','','']); return; }
+    if (!ts.length) { rows.push([dt.getDate(),'','','','','','',finde]); return; }
     const r = calc(d);
     // Tell the office why a day has more hours than usual.
     const obs = d.sinAlmuerzo && d.sinComida ? 'Sin almorzar ni comer' : d.sinAlmuerzo ? 'Sin almorzar' : d.sinComida ? 'Sin comer' : '';
     const manual = d.totalManual != null || d.extraManual != null ? 'Corregido a mano' : '';
-    const nota = [obs, manual].filter(Boolean).join('. ');
+    const nota = [finde, obs, manual].filter(Boolean).join('. ');
     ts.forEach((t,i) => {
       const last = i === ts.length-1;
       rows.push([i ? '' : dt.getDate(), hora(t.ini), hora(t.fin), obraTexto(t), t.parte, last ? fmt(r.total) : '', last && r.extra ? fmt(r.extra) : '', last ? nota : '']);

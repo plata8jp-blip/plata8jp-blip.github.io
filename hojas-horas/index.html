@@ -268,8 +268,11 @@ function diasDelPeriodo(){
 }
 function dia(k){ const h = hoja(); if (!h.dias[k]) h.dias[k] = { tramos:[{ini:'',fin:'',obra:'',parte:''}] }; return h.dias[k]; }
 
-function calc(d){
+// k is the day (YYYY-MM-DD): on Saturdays, Sundays and worked holidays every hour is overtime.
+const esFinde = k => { if (!k) return false; const w = new Date(k+'T12:00').getDay(); return w === 0 || w === 6; };
+function calc(d, k){
   if (!d || d.estado) return {total:null, extra:null};
+  const normal = esFinde(k) || d.festivoTrabajado ? 0 : jornada();
   const t = d.tramos.map(x => ({a:toMin(x.ini), b:toMin(x.fin)})).filter(x => x.a!=null && x.b!=null && x.b > x.a).sort((p,q)=>p.a-q.a);
   let total = null, extra = null, desglose = null;
   if (t.length) {
@@ -283,7 +286,7 @@ function calc(d){
     const alm = !d.sinAlmuerzo && worked > 4*60 ? state.cfg.desayuno : 0;
     const com = !d.sinComida && worked > 6*60 ? Math.max(0, state.cfg.comida - maxGap) : 0;
     total = Math.max(0, worked - alm - com);
-    extra = Math.max(0, total - jornada());
+    extra = Math.max(0, total - normal);
     desglose = [`${fmt(worked)} h trabajadas`];
     if (alm) desglose.push(`− ${fmt(alm)} almuerzo`.replace(/− 0'30/, '− 30 min'));
     if (com) desglose.push(`− ${com % 60 ? com + ' min' : fmt(com) + ' h'} comida`);
@@ -293,9 +296,10 @@ function calc(d){
   }
   if (d.totalManual != null) total = d.totalManual;
   if (d.extraManual != null) extra = d.extraManual;
-  else if (d.totalManual != null) extra = Math.max(0, total - jornada());
+  else if (d.totalManual != null) extra = Math.max(0, total - normal);
   if (d.totalManual != null || d.extraManual != null) desglose = ['corregido a mano'];
-  return {total, extra: extra || null, desglose};
+  const todoExtra = !normal && total ? (d.festivoTrabajado ? 'festivo: todo extra' : 'fin de semana: todo extra') : '';
+  return {total, extra: extra || null, desglose, todoExtra};
 }
 
 // ---------- lista de obras de la oficina (Firebase) ----------
@@ -393,7 +397,7 @@ function bodyHtml(k, d, wk){
         <div><label class="f">Parte nº</label><input data-f="parte" value="${esc(t.parte)}" inputmode="numeric"></div>
       </div>
     </div>`).join('');
-  const r = calc(d);
+  const r = calc(d, k);
   return `${tramos}
     <button class="btn ghost" data-act="addtramo">+ Añadir línea (otra obra u horario)</button>
     <p class="small" data-desglose style="margin:10px 0 0"></p>
@@ -410,8 +414,8 @@ function bodyHtml(k, d, wk){
     </div>
     <button class="link" data-act="override">Corregir total a mano</button>
     <div class="override grid2 ${d.totalManual!=null||d.extraManual!=null?'open':''}">
-      <div><label class="f">Total horas</label><input data-f="totalManual" inputmode="decimal" placeholder="${fmt(calcAuto(d).total)}" value="${d.totalManual!=null?fmt(d.totalManual):''}"></div>
-      <div><label class="f">Horas extra</label><input data-f="extraManual" inputmode="decimal" placeholder="${fmt(calcAuto(d).extra)||'0'}" value="${d.extraManual!=null?fmt(d.extraManual):''}"></div>
+      <div><label class="f">Total horas</label><input data-f="totalManual" inputmode="decimal" placeholder="${fmt(calcAuto(d, k).total)}" value="${d.totalManual!=null?fmt(d.totalManual):''}"></div>
+      <div><label class="f">Horas extra</label><input data-f="extraManual" inputmode="decimal" placeholder="${fmt(calcAuto(d, k).extra)||'0'}" value="${d.extraManual!=null?fmt(d.extraManual):''}"></div>
     </div>`;
 }
 // With an office list the site is chosen from a dropdown ("Otra obra" opens a text box);
@@ -458,14 +462,14 @@ function showSugg(inp){
 }
 document.addEventListener('focusin', e => { if (e.target.dataset && e.target.dataset.f === 'obra') showSugg(e.target); });
 document.addEventListener('focusout', e => { if (e.target.dataset && e.target.dataset.f === 'obra') setTimeout(hideSugg, 150); });
-function calcAuto(d){ return calc(Object.assign({}, d, {totalManual:null, extraManual:null})); }
+function calcAuto(d, k){ return calc(Object.assign({}, d, {totalManual:null, extraManual:null}), k); }
 function updateBadges(k){
   const el = document.querySelector(`.day[data-k="${k}"] [data-badges]`); if (!el) return;
   const d = hoja().dias[k];
   if (d && d.estado) { el.innerHTML = `<span class="badge status">${d.estado}</span>`; return; }
-  const r = calc(d);
+  const r = calc(d, k);
   const ds = el.closest('.day').querySelector('[data-desglose]');
-  if (ds) ds.textContent = r.desglose ? r.desglose.join(' ') + (r.total != null && !d.totalManual ? ` = ${fmt(r.total)} h` : '') : '';
+  if (ds) ds.textContent = r.desglose ? r.desglose.join(' ') + (r.total != null && !d.totalManual ? ` = ${fmt(r.total)} h` : '') + (r.todoExtra ? ` · ${r.todoExtra}` : '') : '';
   el.innerHTML = (r.total!=null ? `<span class="badge">${fmt(r.total)} h</span>` : '') + (r.extra ? `<span class="badge extra">+${fmt(r.extra)}</span>` : '');
 }
 // Hours per site for the PDF summary. A day's total (breaks already taken off) is shared
@@ -474,7 +478,7 @@ function resumenObras(){
   const por = new Map();
   diasDelPeriodo().forEach(dt => {
     const d = hoja().dias[iso(dt)]; if (!d || d.estado) return;
-    const r = calc(d); if (!r.total) return;
+    const r = calc(d, iso(dt)); if (!r.total) return;
     const ls = d.tramos.map(t => ({t, m: (toMin(t.fin) ?? 0) - (toMin(t.ini) ?? 0)})).filter(x => x.m > 0 && (x.t.codigo || x.t.obra));
     if (!ls.length) return;
     const suma = ls.reduce((a, x) => a + x.m, 0);
@@ -493,7 +497,7 @@ function resumenObras(){
 }
 function totales(){
   let t = 0, e = 0, n = 0;
-  diasDelPeriodo().forEach(dt => { const r = calc(hoja().dias[iso(dt)]); if (r.total) { t += r.total; n++; } if (r.extra) e += r.extra; });
+  diasDelPeriodo().forEach(dt => { const r = calc(hoja().dias[iso(dt)], iso(dt)); if (r.total) { t += r.total; n++; } if (r.extra) e += r.extra; });
   return {t, e, n};
 }
 function updateSums(){ const {t,e,n} = totales(); $('sumTotal').textContent = fmt(t)||'0'; $('sumExtra').textContent = fmt(e)||'0'; $('sumDays').textContent = n; }
@@ -633,7 +637,7 @@ function buildPdf(){
     if (d.estado) { rows.push([dt.getDate(),'','',d.estado,'','','',finde]); return; }
     const ts = d.tramos.filter(t => t.ini || t.fin || t.obra || t.codigo || t.parte);
     if (!ts.length) { rows.push([dt.getDate(),'','','','','','',finde]); return; }
-    const r = calc(d);
+    const r = calc(d, k);
     // Tell the office why a day has more hours than usual.
     const obs = d.sinAlmuerzo && d.sinComida ? 'Sin almorzar ni comer' : d.sinAlmuerzo ? 'Sin almorzar' : d.sinComida ? 'Sin comer' : '';
     const manual = d.totalManual != null || d.extraManual != null ? 'Corregido a mano' : '';
